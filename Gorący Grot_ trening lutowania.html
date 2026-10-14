@@ -1,0 +1,1952 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f5b37">
+<title>Gorący Grot: trening lutowania</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Chakra+Petch:wght@600;700&display=swap">
+<style>
+:root{
+  --display:"Chakra Petch","Barlow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --bg:#dfe6e1; --ink:#0f1d17; --muted:#475a51;
+  --mask:#0f5b37; --mask-2:#13693f; --mask-3:#0b4a2c; --mask-ink:#eef6f0; --mask-muted:rgba(238,246,240,.76);
+  --silk:rgba(243,246,241,.6); --tin:#cfd3ce; --hole:#07120d;
+  --hot:#ff8a3d; --hot-ink:#1c0b02; --good:#86e6b0; --bad:#ffb4a8; --gold:#ffd166;
+  --overlay:rgba(5,16,11,.46);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#08120e; --ink:#e6f0eb; --muted:#9db4a9; --mask:#0d5332; --mask-2:#106039; --mask-3:#093f26; --overlay:rgba(1,6,4,.6); color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --bg:#08120e; --ink:#e6f0eb; --muted:#9db4a9; --mask:#0d5332; --mask-2:#106039; --mask-3:#093f26; --overlay:rgba(1,6,4,.6); color-scheme:dark; }
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none !important}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+body.playing #stage canvas{cursor:crosshair}
+
+/* Interfejs wygląda jak kawałek płytki: soldermaska, sitodruk, otwory montażowe */
+.pcb{position:relative;background:var(--mask);color:var(--mask-ink);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.26)}
+.pcb::before{content:"";position:absolute;inset:7px;border:1.5px solid var(--silk);border-radius:5px;pointer-events:none}
+.pcb::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none;
+  background:
+    radial-gradient(circle at 15px 15px,var(--hole) 0 2.6px,var(--tin) 3px 4.6px,transparent 5px),
+    radial-gradient(circle at calc(100% - 15px) 15px,var(--hole) 0 2.6px,var(--tin) 3px 4.6px,transparent 5px),
+    radial-gradient(circle at 15px calc(100% - 15px),var(--hole) 0 2.6px,var(--tin) 3px 4.6px,transparent 5px),
+    radial-gradient(circle at calc(100% - 15px) calc(100% - 15px),var(--hole) 0 2.6px,var(--tin) 3px 4.6px,transparent 5px)}
+.chip{display:inline-block;font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.03em;line-height:1;
+  padding:4px 6px;border:1.5px solid var(--mask-ink);border-radius:3px;color:var(--mask-ink);white-space:nowrap}
+
+.loading{position:fixed;inset:0;z-index:40;display:grid;place-content:center;gap:8px;text-align:center;background:var(--bg);color:var(--ink);padding:20px}
+.loading .t{font-family:var(--display);font-weight:700;font-size:clamp(2.2rem,8vw,3.8rem);line-height:1;margin:0;letter-spacing:-.02em}
+.loading p{margin:0;color:var(--muted)}
+
+/* HUD */
+.hud{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 12px 0;pointer-events:none}
+.hud .pcb{pointer-events:auto}
+.hud-card{width:min(25rem,100%);padding:20px 22px 16px}
+.hud-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-family:var(--display);font-weight:600;font-size:.92rem;color:var(--mask-muted)}
+.prog{display:flex;gap:4px;margin-bottom:10px}
+.prog i{flex:1;height:5px;border-radius:3px;background:rgba(238,246,240,.18)}
+.prog i.now{background:var(--gold)}
+.prog i.good{background:var(--good)}
+.prog i.bad{background:var(--bad)}
+.hud h1{font-family:var(--display);font-weight:700;font-size:1.12rem;line-height:1.2;margin:0 0 4px}
+.hint{margin:0 0 10px;color:var(--mask-muted);font-size:.95rem;min-height:2.8em;max-width:46ch}
+.hint.guided{color:var(--mask-ink);font-size:1.02rem}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meter .lbl{display:flex;justify-content:space-between;gap:6px;font-size:.8rem;color:var(--mask-muted);margin-bottom:4px}
+.meter .lbl b{font-weight:600;color:var(--mask-ink)}
+.bar{position:relative;height:10px;border-radius:5px;background:rgba(0,0,0,.3);overflow:hidden}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:5px;background:var(--hot)}
+.bar .fill.solder{background:var(--tin)}
+.bar .fill.warn{background:var(--bad)}
+.bar .zone{position:absolute;top:0;bottom:0;background:rgba(134,230,176,.22);border-left:2px solid var(--good);border-right:2px solid var(--good)}
+.feedback{margin:10px 0 0;padding-top:8px;border-top:1.5px dashed var(--silk);font-size:.92rem;max-width:46ch}
+.feedback:empty{display:none}
+.feedback.good{color:var(--good)}
+.feedback.bad{color:var(--bad)}
+.score-card{padding:18px 22px 14px;text-align:right;min-width:9.5rem}
+.score{margin:0;font-family:var(--display);font-weight:700;font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums}
+.score small{font-size:.9rem;margin-left:4px;color:var(--mask-muted)}
+.combo{margin:6px 0 0;font-family:var(--display);font-weight:700;color:var(--gold);min-height:1.2em}
+.timer{margin:2px 0 0;font-variant-numeric:tabular-nums;color:var(--mask-muted)}
+.timer.low{color:var(--bad)}
+
+/* przyciski */
+button{font:inherit;font-weight:600;line-height:1.2;border-radius:8px;border:1.5px solid var(--silk);background:transparent;color:var(--mask-ink);
+  padding:11px 16px;min-height:46px;cursor:pointer;text-align:center}
+button small{display:block;font-weight:500;font-size:.8rem;color:var(--mask-muted);margin-top:3px}
+button.primary{background:var(--hot);border-color:transparent;color:var(--hot-ink)}
+button.primary small{color:rgba(28,11,2,.75)}
+button:hover:not(:disabled){border-color:var(--mask-ink)}
+button.primary:hover:not(:disabled){filter:brightness(1.06)}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+
+.controls{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;align-items:flex-end;gap:10px;
+  padding:0 12px calc(12px + env(safe-area-inset-bottom,0px));pointer-events:none}
+.controls button{pointer-events:auto;background:var(--mask);box-shadow:0 8px 20px rgba(0,0,0,.25)}
+.spacer{flex:1}
+#solderBtn{min-width:12rem;min-height:64px;text-align:left;touch-action:none;-webkit-touch-callout:none;background:var(--tin);color:#16201b;border-color:transparent}
+#solderBtn small{color:#3e4a44}
+#solderBtn.active{background:var(--hot);color:var(--hot-ink)}
+
+/* okna dialogowe */
+.overlay{position:fixed;inset:0;z-index:10;display:grid;place-items:center;background:var(--overlay);
+  padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px))}
+.overlay.sheet{place-items:end center;background:transparent;pointer-events:none}
+.overlay.sheet .dialog{pointer-events:auto;width:min(42rem,100%);max-height:56%}
+.dialog{width:min(34rem,100%);max-height:100%;overflow:auto;padding:30px 30px 26px}
+.dialog.menu{width:min(60rem,100%)}
+.dialog.results{width:min(38rem,100%)}
+.dlg-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dialog h2{font-family:var(--display);font-weight:700;font-size:1.6rem;line-height:1.15;margin:0}
+.dialog.menu h2{font-size:clamp(2.4rem,7vw,4.2rem);line-height:.95;letter-spacing:-.02em}
+.dlg-body p{margin:0 0 10px;color:var(--mask-muted);max-width:62ch}
+.dlg-body p.lead{color:var(--mask-ink);font-size:1.05rem}
+.dlg-body p.good{color:var(--good)}
+.dlg-body p.bad{color:var(--bad)}
+.opts{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.opts .grp-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:6px}
+.opts .grp-list{display:flex;flex-direction:column;gap:8px}
+.opts .grp-list button{text-align:left}
+.opts button.answer{display:flex;align-items:center;gap:12px;text-align:left}
+.opts button.answer .key{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--silk);font-family:var(--display);font-weight:700;font-size:.85rem}
+.opts button.right{background:rgba(134,230,176,.18);border-color:var(--good);opacity:1}
+.opts button.wrong{background:rgba(255,180,168,.16);border-color:var(--bad);opacity:1}
+
+/* menu */
+.brand-sub{margin:0 0 18px;color:var(--mask-muted);max-width:52ch}
+.rank{margin:0 0 18px;max-width:30rem}
+.rank-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-family:var(--display);font-weight:700;font-size:1.05rem}
+.rank-row span:last-child{font-weight:600;color:var(--mask-muted);font-variant-numeric:tabular-nums;font-size:.95rem}
+.trace{position:relative;height:8px;margin:8px 0 6px;border-radius:4px;background:rgba(0,0,0,.3)}
+.trace i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:#d9934e}
+.rank-next{margin:0;font-size:.85rem;color:var(--mask-muted)}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(10.5rem,1fr));gap:10px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:9rem;padding:14px;border-radius:8px;background:var(--mask-2);
+  border:1.5px solid rgba(238,246,240,.25);text-align:left}
+.tile .nm{font-family:var(--display);font-weight:700;font-size:1.02rem;line-height:1.15}
+.tile .sb{font-weight:500;font-size:.82rem;line-height:1.3;color:var(--mask-muted)}
+.tile .st{margin-top:auto;display:flex;gap:5px;align-items:center}
+.dot{display:inline-block;width:13px;height:13px;border-radius:50%;background:rgba(0,0,0,.25);box-shadow:inset 0 0 0 1.5px rgba(238,246,240,.4)}
+.dot.on{background:radial-gradient(circle at 34% 30%,#fff 0 16%,#dfe3e5 30%,#8e979c 100%);box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.badge{font-size:.8rem;font-weight:600;padding:4px 9px;border-radius:999px;border:1.5px solid rgba(238,246,240,.28);color:var(--mask-muted)}
+.badge.got{border-color:var(--gold);color:var(--gold)}
+
+/* wyniki */
+.stars{display:flex;gap:14px;margin:4px 0 18px}
+.stars .dot{width:46px;height:46px}
+.stars .dot.on{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+.stars .dot:nth-child(2){animation-delay:.25s}
+.stars .dot:nth-child(3){animation-delay:.5s}
+@keyframes pop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px}
+.stat{padding:10px 12px;border-radius:6px;background:var(--mask-3)}
+.stat b{display:block;font-family:var(--display);font-size:1.3rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.8rem;color:var(--mask-muted)}
+
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:30;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:calc(100% - 24px)}
+.toast .t{background:var(--mask);color:var(--mask-ink);border:1.5px solid var(--gold);border-radius:8px;padding:10px 14px;font-weight:600;box-shadow:0 10px 24px rgba(0,0,0,.3)}
+
+@media (max-width:640px){
+  .hud{flex-direction:column;align-items:stretch;gap:6px}
+  .score-card{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 18px;min-width:0;text-align:left}
+  .score{font-size:1.35rem}
+  .combo,.timer{margin:0}
+  .hud-card{width:100%;padding:16px 16px 12px}
+  .hud h1{font-size:1rem}
+  .hint{font-size:.88rem;min-height:0}
+  .dialog{padding:24px 18px 18px}
+  .levels{grid-template-columns:repeat(auto-fill,minmax(8.3rem,1fr));gap:8px}
+  .tile{min-height:7.6rem;padding:12px}
+  #solderBtn{min-width:9rem}
+}
+@media (hover:none){ #solderBtn small{display:none} }
+@media (prefers-reduced-motion: reduce){ .stars .dot.on{animation:none} }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="loading" class="loading">
+  <p class="t">Gorący Grot</p>
+  <p id="loadMsg">Nagrzewam lutownicę…</p>
+</div>
+
+<header class="hud" id="hud" hidden>
+  <section class="pcb hud-card">
+    <div class="hud-head"><span class="chip" id="hudCode">L1</span><span id="hudName"></span></div>
+    <div class="prog" id="hudProg" aria-hidden="true"></div>
+    <h1 id="hudTitle"></h1>
+    <p class="hint" id="hudHint"></p>
+    <div class="meters" id="hudMeters">
+      <div class="meter">
+        <div class="lbl"><span>Temperatura</span><b id="heatTxt"></b></div>
+        <div class="bar"><i class="fill" id="heatFill"></i><b class="zone" id="heatZone"></b></div>
+      </div>
+      <div class="meter">
+        <div class="lbl"><span>Cyna</span><b id="solderTxt"></b></div>
+        <div class="bar"><i class="fill solder" id="solderFill"></i><b class="zone" id="solderZone"></b></div>
+      </div>
+    </div>
+    <p class="feedback" id="hudFeedback" aria-live="polite"></p>
+  </section>
+  <section class="pcb score-card">
+    <p class="score"><span id="scoreNum">0</span><small>pkt</small></p>
+    <p class="combo" id="comboTxt"></p>
+    <p class="timer" id="timerTxt"></p>
+  </section>
+</header>
+
+<footer class="controls" id="controls" hidden>
+  <button id="solderBtn" type="button" aria-pressed="false">Podaj cynę<small>lub przytrzymaj spację</small></button>
+  <span class="spacer"></span>
+  <button id="pauseBtn" type="button">Pauza</button>
+</footer>
+
+<div id="dlg" class="overlay" hidden>
+  <section class="pcb dialog" id="dlgBox" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="dlg-head"><span class="chip" id="dlgChip" hidden></span><h2 id="dlgTitle"></h2></div>
+    <div id="dlgBody" class="dlg-body"></div>
+    <div id="dlgOpts" class="opts"></div>
+  </section>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+window.addEventListener('error', function(e){ var l = document.getElementById('loading'), m = document.getElementById('loadMsg'); if (l && !l.hidden && m) m.textContent = 'Coś poszło nie tak: ' + (e.message || e.error) + '. Odśwież stronę.'; });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+if (!window.THREE){ document.getElementById('loadMsg').textContent = 'Nie udało się wczytać biblioteki 3D. Sprawdź połączenie z internetem i odśwież stronę.'; return; }
+// ======================================================================
+// a_core: stałe, parametry lutów, zapis postępu, rangi, odznaki, dźwięk
+// ======================================================================
+var $ = function (id) { return document.getElementById(id); };
+var DEBUG = /[?&]debug\b/.test(location.search);
+var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+var MM = 0.006;                          // 1 mm prawdziwej płytki = 6 mm w grze (model powiększony 6x)
+var TABLE_TOP = 0.76, HOLD_H = 0.075, BOARD_Z = -0.40;
+var TOP_MM = 0.8;                        // połowa grubości laminatu 1,6 mm
+var BOARD_CY = TABLE_TOP + HOLD_H + TOP_MM * MM;
+var BT = BOARD_CY + TOP_MM * MM;
+var FEED = 0.8;                          // jednostki cyny na sekundę
+var KINDS = {
+  normal: { heatNeed:1.0, sMin:0.6, sIdeal:1.0, sMax:1.5, overheat:6, touch:0.0095, padR:0.9, note:'' },
+  gnd:    { heatNeed:1.5, sMin:0.6, sIdeal:1.0, sMax:1.5, overheat:7, touch:0.0095, padR:0.9, note:'To pole masy: miedź dookoła odbiera ciepło, więc grzej trochę dłużej.' },
+  big:    { heatNeed:2.2, sMin:1.1, sIdeal:1.6, sMax:2.3, overheat:9, touch:0.013, padR:1.5, note:'Duże pole złącza: więcej metalu, więc grzej dłużej i podaj więcej cyny.' }
+};
+
+function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, t){ return a + (b - a) * t; }
+function ease(t){ t = clamp(t, 0, 1); return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+function fmt(n){ return Math.round(n).toLocaleString('pl-PL'); }
+function fmtMult(m){ return m.toFixed(2).replace(/0$/, '').replace('.', ','); }
+
+// ---------- zapis postępu (tylko w tej przeglądarce) ----------
+var SAVE_KEY = 'goracy-grot-v1';
+function defaultSave(){ return { xp:0, stars:{}, best:{}, badges:{}, board:{}, tutorialDone:false, settings:{ sound:true, swap:false }, bench:null }; }
+var save = (function(){
+  try {
+    var raw = localStorage.getItem(SAVE_KEY);
+    if (raw){
+      var s = JSON.parse(raw), d = defaultSave(), k;
+      for (k in d) if (!(k in s)) s[k] = d[k];
+      for (k in d.settings) if (!(k in s.settings)) s.settings[k] = d.settings[k];
+      return s;
+    }
+  } catch (_) {}
+  return defaultSave();
+})();
+function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) {} }
+
+// ---------- rangi i odznaki ----------
+var RANKS = [ { xp:0, name:'Nowicjusz' }, { xp:300, name:'Praktykant' }, { xp:900, name:'Technik' }, { xp:1800, name:'Elektronik' }, { xp:3000, name:'Mistrz Lutu' } ];
+function rankInfo(xp){
+  var cur = RANKS[0], next = null;
+  for (var i = 0; i < RANKS.length; i++){ if (xp >= RANKS[i].xp) cur = RANKS[i]; else { next = RANKS[i]; break; } }
+  return { cur:cur, next:next, frac: next ? (xp - cur.xp) / (next.xp - cur.xp) : 1 };
+}
+var BADGES = [
+  { id:'bhp',      name:'Bezpiecznik',   desc:'Quiz BHP bez pomyłki' },
+  { id:'first',    name:'Pierwszy lut',  desc:'Twój pierwszy dobry lut' },
+  { id:'combo5',   name:'Seria 5',       desc:'Pięć perfekcyjnych lutów z rzędu' },
+  { id:'nocold',   name:'Zero zimnych',  desc:'Cały poziom bez zimnego lutu' },
+  { id:'nobridge', name:'Bez mostków',   desc:'Scalak bez ani jednego mostka' },
+  { id:'quick',    name:'Szybka ręka',   desc:'Perfekcyjny lut w mniej niż 3 sekundy' },
+  { id:'blink',    name:'Migacz działa', desc:'Uruchomiony układ' },
+  { id:'master',   name:'Mistrz Lutu',   desc:'Egzamin na trzy gwiazdki' },
+  { id:'all3',     name:'Kolekcjoner',   desc:'Wszystkie poziomy na trzy gwiazdki' }
+];
+function badgeById(id){ for (var i = 0; i < BADGES.length; i++) if (BADGES[i].id === id) return BADGES[i]; return null; }
+
+// ---------- dźwięk (syntezowany, bez plików) ----------
+var audio = null, sizzleOn = false;
+function initAudio(){
+  if (audio){ if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
+  var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  try {
+    var ctx = new AC(), master = ctx.createGain();
+    master.gain.value = save.settings.sound ? 1 : 0; master.connect(ctx.destination);
+    var len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++){ var cr = Math.random() < 0.002 ? (Math.random() * 2 - 1) * 2.5 : 0; d[i] = (Math.random() * 2 - 1) * 0.35 + cr; }
+    var src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 4200; bp.Q.value = 0.8;
+    var sg = ctx.createGain(); sg.gain.value = 0;
+    src.connect(bp); bp.connect(sg); sg.connect(master); src.start();
+    audio = { ctx:ctx, master:master, sizzle:sg };
+  } catch (_) { audio = null; }
+}
+function setSound(on){ save.settings.sound = on; persist(); if (audio) audio.master.gain.setTargetAtTime(on ? 1 : 0, audio.ctx.currentTime, 0.02); }
+function setSizzle(on){ if (!audio || on === sizzleOn) return; sizzleOn = on; audio.sizzle.gain.setTargetAtTime(on ? 0.16 : 0, audio.ctx.currentTime, on ? 0.04 : 0.12); }
+function tone(f, dur, type, vol, delay, slide){
+  if (!audio) return;
+  var c = audio.ctx, t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.15, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(audio.master); o.start(t); o.stop(t + dur + 0.05);
+}
+var sfx = {
+  click:   function(){ tone(900, 0.05, 'triangle', 0.07); },
+  move:    function(){ tone(620, 0.04, 'triangle', 0.05); },
+  good:    function(){ tone(660, 0.12, 'triangle', 0.14); tone(990, 0.2, 'triangle', 0.12, 0.08); },
+  perfect: function(){ [784, 988, 1175, 1568].forEach(function(f, i){ tone(f, 0.24, 'triangle', 0.12, i * 0.06); }); },
+  bad:     function(){ tone(190, 0.38, 'sawtooth', 0.1, 0, 110); },
+  combo:   function(n){ tone(520 + n * 110, 0.1, 'square', 0.05); },
+  right:   function(){ tone(700, 0.1, 'sine', 0.13); tone(1050, 0.18, 'sine', 0.13, 0.09); },
+  wrong:   function(){ tone(260, 0.16, 'square', 0.07); tone(196, 0.24, 'square', 0.07, 0.12); },
+  level:   function(){ [523, 659, 784, 1047].forEach(function(f, i){ tone(f, 0.3, 'triangle', 0.13, i * 0.12); }); tone(1047, 0.7, 'sine', 0.1, 0.5); },
+  badge:   function(){ tone(1320, 0.12, 'triangle', 0.1); tone(1760, 0.25, 'triangle', 0.1, 0.1); },
+  tick:    function(){ tone(2400, 0.025, 'square', 0.03); },
+  power:   function(){ tone(55, 0.5, 'sawtooth', 0.05, 0, 80); tone(1200, 0.08, 'sine', 0.06, 0.45); },
+  fail:    function(){ tone(140, 0.5, 'sawtooth', 0.07, 0, 70); }
+};
+
+// ======================================================================
+// b_scene: renderer, materiały, kamera, pracownia, stół i rekwizyty
+// ======================================================================
+var renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local-floor');
+$('stage').appendChild(renderer.domElement);
+var maxAniso = renderer.capabilities.getMaxAnisotropy();
+var scene = new THREE.Scene();
+var BG = new THREE.Color(0xd9dcd8);
+scene.background = BG;
+
+function C(hex){ return new THREE.Color(hex).convertSRGBToLinear(); }
+function std(o){
+  var m = new THREE.MeshStandardMaterial({ color:C(o.color), roughness:o.rough != null ? o.rough : 0.6, metalness:o.metal || 0 });
+  if (o.map){ o.map.encoding = THREE.sRGBEncoding; m.map = o.map; }
+  if (o.opacity != null){ m.transparent = true; m.opacity = o.opacity; }
+  if (o.side) m.side = o.side;
+  return m;
+}
+function canvasTex(w, h, draw){ var c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); var t = new THREE.CanvasTexture(c); t.anisotropy = maxAniso; return t; }
+function noise(g, w, h, amount){ var img = g.getImageData(0, 0, w, h), d = img.data; for (var i = 0; i < d.length; i += 4){ var n = (Math.random() - 0.5) * amount; d[i] += n; d[i + 1] += n; d[i + 2] += n; } g.putImageData(img, 0, 0); }
+function repeatTex(t, rx, ry){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); return t; }
+function box(w, h, d, mat){ return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); }
+function cyl(rt, rb, h, mat, seg){ return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 16), mat); }
+function plane(w, h, mat){ return new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); }
+function V3(x, y, z){ return new THREE.Vector3(x || 0, y || 0, z || 0); }
+var _up = V3(0, 1, 0);
+var sphereGeo = new THREE.SphereGeometry(1, 16, 12);
+function cylBetween(a, b, r, mat, seg){
+  var dir = new THREE.Vector3().subVectors(b, a), len = dir.length();
+  var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg || 8), mat);
+  m.position.copy(a).addScaledVector(dir, 0.5);
+  m.quaternion.setFromUnitVectors(_up, dir.normalize());
+  return m;
+}
+
+// ---------- kamera i ujęcia (tryb komputerowy) ----------
+var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 40);
+var camPos = V3(), camLook = V3(), camPosT = V3(), camLookT = V3();
+var shot = 'menu', camSnap = true;
+function shotPose(name, t){
+  var a = window.innerWidth / window.innerHeight, far = a < 0.8 ? 1.3 : 1;
+  if (name === 'menu'){
+    var ang = reduceMotion ? 0.45 : 0.45 + Math.sin(t * 0.12) * 0.3, r = 0.64 * far;
+    camPosT.set(Math.sin(ang) * r, BT + 0.30, BOARD_Z + Math.cos(ang) * r); camLookT.set(0, BT + 0.01, BOARD_Z);
+  } else if (name === 'show'){ camPosT.set(0, BT + 0.25, BOARD_Z + 0.40 * far); camLookT.set(0, BT + 0.02, BOARD_Z - 0.01); }
+  else if (name === 'samples'){ camPosT.set(0, BT + 0.20 * far, BOARD_Z + 0.30 * far); camLookT.set(0, BT, BOARD_Z + 0.15); }
+  else { camPosT.set(0, BT + 0.40 * far, BOARD_Z + 0.36 * far); camLookT.set(0, BT - 0.01, BOARD_Z - 0.03 - (a < 0.8 ? 0.10 : 0)); }
+}
+function fitCamera(){
+  var a = window.innerWidth / window.innerHeight; camera.aspect = a;
+  var need = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(21)) / a);
+  camera.fov = Math.min(92, Math.max(40, THREE.MathUtils.radToDeg(need)));
+  camera.updateProjectionMatrix();
+}
+function updateCamera(dt, t){
+  if (renderer.xr.isPresenting) return;
+  shotPose(shot, t);
+  if (camSnap || reduceMotion){ camPos.copy(camPosT); camLook.copy(camLookT); camSnap = false; }
+  else { var k = 1 - Math.exp(-dt * 3.2); camPos.lerp(camPosT, k); camLook.lerp(camLookT, k); }
+  camera.position.copy(camPos); camera.lookAt(camLook);
+}
+fitCamera();
+
+// ---------- pracownia ----------
+var roomGroup = new THREE.Group(); scene.add(roomGroup);
+var ROOM_W = 5, ROOM_H = 2.9, ROOM_D = 5, ROOM_Z = -0.8;
+(function(){
+  var room = box(ROOM_W, ROOM_H, ROOM_D, std({ color:0xdcdfdb, rough:0.95, side:THREE.BackSide }));
+  room.position.set(0, ROOM_H / 2, ROOM_Z); room.userData.noCast = true; roomGroup.add(room);
+  var floorTex = repeatTex(canvasTex(512, 512, function(g, w, h){ g.fillStyle = '#7a8285'; g.fillRect(0, 0, w, h); noise(g, w, h, 18); }), 8, 8);
+  var floor = plane(ROOM_W, ROOM_D, std({ color:0xffffff, map:floorTex, rough:0.55 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0.002, ROOM_Z); floor.userData.noCast = true; roomGroup.add(floor);
+  var win = plane(1.6, 1.2, new THREE.MeshBasicMaterial({ color:new THREE.Color(1.5, 1.65, 1.85) }));
+  win.rotation.y = Math.PI / 2; win.position.set(-ROOM_W / 2 + 0.01, 1.6, ROOM_Z + 0.3); win.userData.noShadow = true; roomGroup.add(win);
+  var frameMat = std({ color:0xeceeec, rough:0.6 });
+  var bv = box(0.04, 1.2, 0.04, frameMat); bv.position.set(-ROOM_W / 2 + 0.02, 1.6, ROOM_Z + 0.3); roomGroup.add(bv);
+  var bh = box(0.04, 0.04, 1.6, frameMat); bh.position.set(-ROOM_W / 2 + 0.02, 1.6, ROOM_Z + 0.3); roomGroup.add(bh);
+  var lampPanel = plane(1.2, 0.25, new THREE.MeshBasicMaterial({ color:new THREE.Color(2.2, 2.15, 2.0) }));
+  lampPanel.rotation.x = Math.PI / 2; lampPanel.position.set(0, ROOM_H - 0.01, BOARD_Z); lampPanel.userData.noShadow = true; roomGroup.add(lampPanel);
+  // tablica narzędziowa na ścianie
+  var pegTex = canvasTex(1024, 512, function(g, w, h){
+    g.fillStyle = '#b89464'; g.fillRect(0, 0, w, h); noise(g, w, h, 14);
+    g.fillStyle = 'rgba(40,25,10,0.55)';
+    for (var y = 16; y < h; y += 32) for (var x = 16; x < w; x += 32){ g.beginPath(); g.arc(x, y, 4, 0, 6.283); g.fill(); }
+    g.lineCap = 'round';
+    g.fillStyle = '#e2712b'; g.fillRect(104, 90, 34, 110); g.fillStyle = '#b9bdc0'; g.fillRect(117, 200, 8, 150);
+    g.strokeStyle = '#c63a2e'; g.lineWidth = 16; g.beginPath(); g.moveTo(278, 340); g.lineTo(300, 210); g.moveTo(322, 340); g.lineTo(300, 210); g.stroke();
+    g.strokeStyle = '#a9adb0'; g.lineWidth = 9; g.beginPath(); g.moveTo(300, 210); g.lineTo(292, 120); g.moveTo(300, 210); g.lineTo(308, 120); g.stroke();
+    g.strokeStyle = '#2e63b8'; g.lineWidth = 16; g.beginPath(); g.moveTo(448, 340); g.lineTo(470, 220); g.moveTo(492, 340); g.lineTo(470, 220); g.stroke();
+    g.strokeStyle = '#a9adb0'; g.lineWidth = 10; g.beginPath(); g.moveTo(470, 220); g.lineTo(462, 160); g.moveTo(470, 220); g.lineTo(478, 160); g.stroke();
+    g.strokeStyle = '#c9cdd0'; g.lineWidth = 5; g.beginPath(); g.moveTo(612, 110); g.lineTo(598, 330); g.moveTo(628, 110); g.lineTo(642, 330); g.stroke();
+    g.fillStyle = '#2f6aa0'; g.beginPath(); g.arc(800, 220, 62, 0, 6.283); g.fill(); g.fillStyle = '#c9cdd0'; g.beginPath(); g.arc(800, 220, 40, 0, 6.283); g.fill();
+    g.fillStyle = '#222'; g.beginPath(); g.arc(800, 220, 12, 0, 6.283); g.fill();
+    g.fillStyle = '#f2c230'; g.fillRect(890, 110, 110, 190); g.fillStyle = '#26302c'; g.fillRect(905, 125, 80, 46); g.fillStyle = '#9fd3b8'; g.font = '700 30px monospace'; g.fillText('9.02', 910, 160);
+    g.fillStyle = '#333'; g.beginPath(); g.arc(945, 240, 28, 0, 6.283); g.fill();
+  });
+  var peg = plane(1.4, 0.7, std({ color:0xffffff, map:pegTex, rough:0.8 }));
+  peg.position.set(0, 1.48, BOARD_Z - 0.74); roomGroup.add(peg);
+})();
+
+// ---------- światło i odbicia ----------
+scene.add(new THREE.HemisphereLight(C(0xeef4ff), C(0x5e574e), 0.3));
+var SUN_POS = V3(-1.7, 2.5, BOARD_Z + 0.35), SUN_TGT = V3(0, BT, BOARD_Z);
+var sun = new THREE.DirectionalLight(C(0xfff3e2), 1.5);
+sun.position.copy(SUN_POS); sun.target.position.copy(SUN_TGT); scene.add(sun.target); scene.add(sun);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+(function(sc){ sc.left = -0.6; sc.right = 0.6; sc.top = 0.5; sc.bottom = -0.5; sc.near = 0.5; sc.far = 6; sc.updateProjectionMatrix(); })(sun.shadow.camera);
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.002;
+var lamp = new THREE.PointLight(C(0xfff1dc), 1.2, 3, 2); lamp.position.set(0, 2.2, BOARD_Z + 0.1); scene.add(lamp);
+(function(){
+  var es = new THREE.Scene();
+  function basic(c){ return new THREE.MeshBasicMaterial({ color:c, side:THREE.DoubleSide }); }
+  var er = box(ROOM_W, ROOM_H, ROOM_D, new THREE.MeshBasicMaterial({ color:C(0xa9aca8), side:THREE.BackSide }));
+  er.position.set(0, ROOM_H / 2 - BT, ROOM_Z - BOARD_Z); es.add(er);
+  var ef = plane(ROOM_W, ROOM_D, basic(C(0x5f6669))); ef.rotation.x = -Math.PI / 2; ef.position.set(0, -BT + 0.01, ROOM_Z - BOARD_Z); es.add(ef);
+  var et = plane(1.3, 0.75, basic(C(0xb48a58))); et.rotation.x = -Math.PI / 2; et.position.set(0, TABLE_TOP - BT - 0.002, -0.05); es.add(et);
+  var ew = plane(1.6, 1.2, basic(new THREE.Color(6, 6.4, 7))); ew.rotation.y = Math.PI / 2; ew.position.set(-ROOM_W / 2 + 0.02, 1.6 - BT, ROOM_Z + 0.3 - BOARD_Z); es.add(ew);
+  var el = plane(1.2, 0.25, basic(new THREE.Color(9, 8.8, 8.2))); el.rotation.x = Math.PI / 2; el.position.set(0, ROOM_H - 0.02 - BT, 0); es.add(el);
+  var pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(es, 0.02).texture;
+  pm.dispose();
+})();
+
+// ---------- stół roboczy (całość można przesunąć w goglach) ----------
+var bench = new THREE.Group(); scene.add(bench);
+var tableGroup = new THREE.Group(); bench.add(tableGroup);
+var tableZ = BOARD_Z - 0.05;
+var holderArms = [], standTip = new THREE.Object3D(), spoolTip = new THREE.Object3D(), batteryGroup = new THREE.Group();
+var STAND_DIR = V3(0, Math.cos(0.85), Math.sin(0.85)), WIRE_REST_DIR = V3(-0.25, 0.25, 0.93).normalize();
+(function(){
+  var woodTex = canvasTex(1024, 512, function(g, w, h){
+    g.fillStyle = '#b48a58'; g.fillRect(0, 0, w, h);
+    for (var i = 0; i < 140; i++){
+      var y = Math.random() * h, a = 0.04 + Math.random() * 0.08;
+      g.strokeStyle = 'rgba(90,55,25,' + a.toFixed(3) + ')'; g.lineWidth = 1 + Math.random() * 3; g.beginPath();
+      for (var x = 0; x <= w; x += 32){ var yy = y + Math.sin(x * 0.004 + i) * 6 + Math.sin(x * 0.013 + i * 1.7) * 2; if (x === 0) g.moveTo(x, yy); else g.lineTo(x, yy); }
+      g.stroke();
+    }
+    noise(g, w, h, 12);
+  });
+  var table = box(1.3, 0.04, 0.75, std({ color:0xffffff, map:woodTex, rough:0.6 })); table.position.set(0, TABLE_TOP - 0.02, tableZ); tableGroup.add(table);
+  var legMat = std({ color:0x5a5f63, metal:0.6, rough:0.45 });
+  [-0.6, 0.6].forEach(function(sx){ [-0.33, 0.33].forEach(function(sz){ var leg = box(0.04, TABLE_TOP - 0.04, 0.04, legMat); leg.position.set(sx, (TABLE_TOP - 0.04) / 2, tableZ + sz); tableGroup.add(leg); }); });
+  var matTex = repeatTex(canvasTex(512, 512, function(g, w, h){
+    g.fillStyle = '#3f6476'; g.fillRect(0, 0, w, h); noise(g, w, h, 10);
+    g.strokeStyle = 'rgba(255,255,255,0.07)'; g.lineWidth = 2;
+    for (var i = 0; i <= w; i += 64){ g.beginPath(); g.moveTo(i, 0); g.lineTo(i, h); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(w, i); g.stroke(); }
+  }), 3, 2);
+  var esd = plane(1.0, 0.62, std({ color:0xffffff, map:matTex, rough:0.85 })); esd.rotation.x = -Math.PI / 2; esd.position.set(0, TABLE_TOP + 0.001, BOARD_Z); bench.add(esd);
+  // uchwyt do płytek: szyna i dwa ramiona z pokrętłami
+  var hMat = std({ color:0x2f3337, rough:0.5 }), knobMat = std({ color:0xd2491f, rough:0.4 });
+  var rail = box(0.56, 0.012, 0.045, std({ color:0xa7adb2, metal:0.85, rough:0.38 })); rail.position.set(0, TABLE_TOP + 0.007, BOARD_Z); bench.add(rail);
+  [-1, 1].forEach(function(s){
+    var arm = new THREE.Group(); arm.position.set(s * 0.21, 0, BOARD_Z);
+    var post = box(0.012, HOLD_H + 0.012, 0.024, hMat); post.position.y = TABLE_TOP + (HOLD_H + 0.012) / 2; arm.add(post);
+    var knob = cyl(0.009, 0.009, 0.012, knobMat, 20); knob.rotation.z = Math.PI / 2; knob.position.set(s * 0.011, BOARD_CY, 0); arm.add(knob);
+    bench.add(arm); holderArms.push(arm);
+  });
+  // podstawka lutownicy z gąbką
+  var sx = 0.42, sz = BOARD_Z + 0.06;
+  var base = box(0.1, 0.018, 0.15, std({ color:0x2b2f33, metal:0.4, rough:0.5 })); base.position.set(sx, TABLE_TOP + 0.009, sz); bench.add(base);
+  var sponge = box(0.055, 0.012, 0.055, std({ color:0xd8b23a, rough:0.95 })); sponge.position.set(sx, TABLE_TOP + 0.024, sz + 0.045); bench.add(sponge);
+  var helix = new THREE.Curve();
+  helix.getPoint = function(t, target){ var v = target || V3(); var a = t * Math.PI * 14, r = 0.017 + t * 0.007; return v.set(Math.cos(a) * r, t * 0.11, Math.sin(a) * r); };
+  var coil = new THREE.Mesh(new THREE.TubeGeometry(helix, 280, 0.0017, 6, false), std({ color:0x9aa0a6, metal:1, rough:0.35 }));
+  coil.position.set(sx, TABLE_TOP + 0.03, sz - 0.05); coil.rotation.x = 0.85; bench.add(coil);
+  standTip.position.set(sx, TABLE_TOP + 0.03, sz - 0.05).addScaledVector(STAND_DIR, 0.03); bench.add(standTip);
+  // szpula cyny
+  var spMetal = std({ color:0xc9cdd1, metal:1, rough:0.32 }), spPlastic = std({ color:0x2f6aa0, rough:0.4 });
+  var core = cyl(0.03, 0.03, 0.04, spMetal, 32); core.position.set(-0.42, TABLE_TOP + 0.022, BOARD_Z + 0.08); bench.add(core);
+  [0.002, 0.042].forEach(function(dy){ var f = cyl(0.042, 0.042, 0.003, spPlastic, 32); f.position.set(-0.42, TABLE_TOP + dy, BOARD_Z + 0.08); bench.add(f); });
+  spoolTip.position.set(-0.36, TABLE_TOP + 0.008, BOARD_Z + 0.02); bench.add(spoolTip);
+  // pochłaniacz dymu
+  var fan = new THREE.Group(); fan.position.set(0.36, TABLE_TOP, BOARD_Z - 0.17); fan.rotation.y = -0.75; bench.add(fan);
+  var grille = canvasTex(256, 256, function(g, w, h){
+    g.fillStyle = '#1e2225'; g.fillRect(0, 0, w, h); g.strokeStyle = '#6d757b'; g.lineWidth = 5;
+    for (var r = 26; r < 120; r += 22){ g.beginPath(); g.arc(128, 128, r, 0, 6.283); g.stroke(); }
+    for (var i = 0; i < 8; i++){ var a = i * Math.PI / 4; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.cos(a) * 118, 128 + Math.sin(a) * 118); g.stroke(); }
+  });
+  var fMat = std({ color:0x2b2f33, rough:0.55 }), fFront = std({ color:0xffffff, map:grille, rough:0.7 });
+  var fb = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.06), [fMat, fMat, fMat, fMat, fFront, fMat]); fb.position.y = 0.09; fan.add(fb);
+  var ff = box(0.08, 0.02, 0.07, fMat); ff.position.y = 0.01; fan.add(ff);
+  // bateria 9 V z przewodami (pokazuje się przy uruchamianiu układu)
+  var bBody = box(0.0485, 0.0175, 0.0265, std({ color:0x1c1d1f, rough:0.5 })); batteryGroup.add(bBody);
+  var bBand = box(0.02, 0.0177, 0.0267, std({ color:0xd88a1e, rough:0.4 })); bBand.position.x = 0.012; batteryGroup.add(bBand);
+  var snap = box(0.008, 0.012, 0.022, std({ color:0x111111, rough:0.6 })); snap.position.x = -0.028; batteryGroup.add(snap);
+  batteryGroup.position.set(-0.33, TABLE_TOP + 0.009, BOARD_Z + 0.12); batteryGroup.rotation.y = 0.3; batteryGroup.visible = false; bench.add(batteryGroup);
+})();
+function syncBenchLights(){ sun.position.copy(SUN_POS).add(bench.position); sun.target.position.copy(SUN_TGT).add(bench.position); lamp.position.set(0, 2.2, BOARD_Z + 0.1).add(bench.position); }
+
+// ======================================================================
+// c1_boards: tekstury płytek (kolor, relief, szorstkość/metal) i definicje
+// ======================================================================
+var PASS = {
+  color: { bare:'#073f22', cu:'#0e5f33', tin:'#cfd3ce', hole:'#0f120f', silk:'#eef2ec', fr2:'#7a4a22', fr2cu:'#e0a070', fr2hole:'#24170b', fr2silk:'#f3eee2' },
+  bump:  { bare:'#000000', cu:'#4a4a4a', tin:'#ffffff', hole:'#000000', silk:'#9a9a9a', fr2:'#000000', fr2cu:'#a8a8a8', fr2hole:'#000000', fr2silk:'#505050' },
+  rm:    { bare:'rgb(0,80,0)', cu:'rgb(0,80,0)', tin:'rgb(0,70,200)', hole:'rgb(0,255,0)', silk:'rgb(0,172,0)', fr2:'rgb(0,192,0)', fr2cu:'rgb(0,110,150)', fr2hole:'rgb(0,255,0)', fr2silk:'rgb(0,186,0)' }
+};
+var PX_PER_MM = 28;
+function paintSides(def, side, painter){
+  var out = {}, W = def.W, D = def.D, k = PX_PER_MM;
+  ['color', 'bump', 'rm'].forEach(function(pass){
+    var c = document.createElement('canvas'); c.width = Math.round(W * k); c.height = Math.round(D * k);
+    var g = c.getContext('2d');
+    var P = side === 'top' ? function(x, z){ return [(x + W / 2) * k, (z + D / 2) * k]; } : function(x, z){ return [(x + W / 2) * k, (D / 2 - z) * k]; };
+    painter(def, g, P, k, PASS[pass], c.width, c.height);
+    if (pass === 'color') noise(g, c.width, c.height, 9);
+    out[pass] = c;
+  });
+  return out;
+}
+function boardMaterial(maps){
+  var m = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:1, metalness:1 });
+  m.map = new THREE.CanvasTexture(maps.color); m.map.encoding = THREE.sRGBEncoding; m.map.anisotropy = maxAniso;
+  m.bumpMap = new THREE.CanvasTexture(maps.bump); m.bumpMap.anisotropy = maxAniso; m.bumpScale = 0.35;
+  var rm = new THREE.CanvasTexture(maps.rm); rm.anisotropy = maxAniso; m.roughnessMap = rm; m.metalnessMap = rm;
+  return m;
+}
+function pPath(g, P, pts){ g.beginPath(); pts.forEach(function(p, i){ var q = P(p[0], p[1]); if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }); }
+function pCirc(g, P, k, x, z, r){ var q = P(x, z); g.beginPath(); g.arc(q[0], q[1], r * k, 0, Math.PI * 2); }
+function pRect(g, P, k, x, z, w, d){ var q = P(x, z); g.beginPath(); g.rect(q[0] - w * k / 2, q[1] - d * k / 2, w * k, d * k); }
+function pText(g, P, k, s, x, z, size, weight, align){ var q = P(x, z); g.font = (weight || 600) + ' ' + (size * k).toFixed(1) + 'px Barlow, Arial, sans-serif'; g.textAlign = align || 'center'; g.textBaseline = 'middle'; g.fillText(s, q[0], q[1]); }
+function pRound(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function pinsOf(def){ var out = []; def.comps.forEach(function(c){ c.pins.forEach(function(p){ out.push(p); }); }); return out; }
+function compById(def, id){ for (var i = 0; i < def.comps.length; i++) if (def.comps[i].id === id) return def.comps[i]; return null; }
+function drawPads(g, P, k, c, pins){
+  pins.forEach(function(p){
+    g.fillStyle = c.tin; if (p.sq) pRect(g, P, k, p.x, p.z, p.padR * 2, p.padR * 2); else pCirc(g, P, k, p.x, p.z, p.padR); g.fill();
+    g.fillStyle = c.hole; pCirc(g, P, k, p.x, p.z, p.kind === 'big' ? 0.7 : 0.48); g.fill();
+  });
+}
+function drawHoles(def, g, P, k, c){ def.holes.forEach(function(h){ g.fillStyle = c.tin; pCirc(g, P, k, h[0], h[1], 2.5); g.fill(); g.fillStyle = c.hole; pCirc(g, P, k, h[0], h[1], 1.6); g.fill(); }); }
+
+// ---------- płytka "Migacz 555" (dwustronna, z wylewką masy) ----------
+var BLINK = {
+  id:'blink', W:64, D:40, pour:true, edge:0xc8b98a,
+  comps:[
+    { id:'J1', type:'term', pins:[ { n:'1', lab:'+9 V', x:-27, z:-2.54, net:'VCC', kind:'big', sq:true }, { n:'2', lab:'masa', x:-27, z:2.54, net:'GND', kind:'big' } ] },
+    { id:'R1', type:'res', val:'10k', bands:['brown','black','orange','gold'], pins:[ { n:'1', x:-20.32, z:-12.7, net:'VCC' }, { n:'2', x:-10.16, z:-12.7, net:'DIS' } ] },
+    { id:'R2', type:'res', val:'68k', bands:['blue','gray','orange','gold'], pins:[ { n:'1', x:-10.16, z:-7.62, net:'DIS' }, { n:'2', x:-20.32, z:-7.62, net:'THR' } ] },
+    { id:'R3', type:'res', val:'470', bands:['yellow','violet','brown','gold'], pins:[ { n:'1', x:10.16, z:-10.16, net:'OUT' }, { n:'2', x:20.32, z:-10.16, net:'LEDA' } ] },
+    { id:'C1', type:'elko', val:'10µF', pins:[ { n:'+', lab:'plus (+)', x:-17.78, z:7.62, net:'THR' }, { n:'−', lab:'minus (−)', x:-15.24, z:7.62, net:'GND' } ] },
+    { id:'C2', type:'cer', val:'10n', pins:[ { n:'1', x:3.81, z:10.16, net:'CTRL' }, { n:'2', x:8.89, z:10.16, net:'GND' } ] },
+    { id:'D1', type:'led', pins:[ { n:'A', lab:'anoda (+)', x:20.32, z:2.54, net:'LEDA' }, { n:'K', lab:'katoda (−)', x:22.86, z:2.54, net:'GND', sq:true } ] },
+    { id:'U1', type:'dip8', pins:[
+      { n:'1', x:-3.81, z:-5.08, net:'GND', sq:true }, { n:'2', x:-1.27, z:-5.08, net:'THR' }, { n:'3', x:1.27, z:-5.08, net:'OUT' }, { n:'4', x:3.81, z:-5.08, net:'VCC' },
+      { n:'5', x:3.81, z:2.54, net:'CTRL' }, { n:'6', x:1.27, z:2.54, net:'THR' }, { n:'7', x:-1.27, z:2.54, net:'DIS' }, { n:'8', x:-3.81, z:2.54, net:'VCC' } ] }
+  ],
+  topTraces:[
+    [[-27,-2.54],[-27,-16],[3.81,-16],[3.81,-5.08]], [[-20.32,-16],[-20.32,-12.7]], [[-10.16,-12.7],[-10.16,-7.62]],
+    [[-10.16,-7.62],[-7.62,-5.08],[-7.62,5.84],[-1.27,5.84],[-1.27,2.54]], [[-20.32,-7.62],[-20.32,5.08],[-17.78,7.62]],
+    [[20.32,-10.16],[20.32,2.54]], [[3.81,2.54],[3.81,10.16]]
+  ],
+  botTraces:[
+    [[-3.81,2.54],[-3.81,4.5],[6,4.5],[6,-5.08],[3.81,-5.08]], [[-1.27,-5.08],[-1.27,-2.0],[1.27,0.5],[1.27,2.54]],
+    [[-20.32,-7.62],[-17,-10.5],[-5.5,-10.5],[-1.27,-6.5],[-1.27,-5.08]], [[1.27,-5.08],[1.27,-8],[8,-8],[10.16,-10.16]]
+  ],
+  holes:[[-29,-16.5],[29,-16.5],[-29,16.5],[29,16.5]]
+};
+BLINK.paintTop = function(def, g, P, k, c, w, h){
+  var pins = pinsOf(def);
+  g.fillStyle = c.bare; g.fillRect(0, 0, w, h);
+  var a = P(-def.W / 2 + 1.2, -def.D / 2 + 1.2), b = P(def.W / 2 - 1.2, def.D / 2 - 1.2);
+  g.fillStyle = c.cu; pRound(g, a[0], a[1], b[0] - a[0], b[1] - a[1], 1.6 * k); g.fill();
+  g.strokeStyle = c.bare; g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = 1.6 * k;
+  def.topTraces.forEach(function(t){ pPath(g, P, t); g.stroke(); });
+  g.fillStyle = c.bare;
+  pins.forEach(function(p){ if (p.net !== 'GND'){ pCirc(g, P, k, p.x, p.z, p.padR + 0.6); g.fill(); } });
+  def.holes.forEach(function(hh){ pCirc(g, P, k, hh[0], hh[1], 3.4); g.fill(); });
+  g.strokeStyle = c.cu; g.lineWidth = 0.6 * k;
+  def.topTraces.forEach(function(t){ pPath(g, P, t); g.stroke(); });
+  pins.forEach(function(p){
+    if (p.net !== 'GND') return;
+    g.fillStyle = c.bare; pCirc(g, P, k, p.x, p.z, p.padR + 0.55); g.fill();
+    g.strokeStyle = c.cu; g.lineWidth = 0.5 * k;
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function(d){ pPath(g, P, [[p.x, p.z], [p.x + d[0] * (p.padR + 0.9), p.z + d[1] * (p.padR + 0.9)]]); g.stroke(); });
+  });
+  drawPads(g, P, k, c, pins); drawHoles(def, g, P, k, c);
+  g.fillStyle = c.silk;
+  [['J1', -27, -7.0], ['R1', -15.24, -14.4], ['R2', -15.24, -5.6], ['R3', 15.24, -12.4], ['U1', 8.6, -1.3], ['C1', -16.5, 10.9], ['C2', 6.35, 12.9], ['D1', 21.6, 6.2], ['1', -5.9, -6.9]]
+    .forEach(function(l){ pText(g, P, k, l[0], l[1], l[2], 1.5, 700); });
+  pText(g, P, k, 'MIGACZ 555', 20.5, 12.8, 2.0, 700);
+  pText(g, P, k, 'strona lutowania', 20.5, 15.6, 1.3, 500);
+};
+BLINK.paintBottom = function(def, g, P, k, c, w, h){
+  var pins = pinsOf(def);
+  g.fillStyle = c.bare; g.fillRect(0, 0, w, h);
+  g.strokeStyle = c.cu; g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = 0.6 * k;
+  def.botTraces.forEach(function(t){ pPath(g, P, t); g.stroke(); });
+  drawPads(g, P, k, c, pins); drawHoles(def, g, P, k, c);
+  g.strokeStyle = c.silk; g.fillStyle = c.silk; g.lineWidth = 0.22 * k; g.lineCap = 'round';
+  ['R1', 'R2', 'R3'].forEach(function(id){
+    var cp = compById(def, id), a = cp.pins[0], b = cp.pins[1], s = Math.sign(b.x - a.x), mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+    pRect(g, P, k, mx, mz, 6.6, 2.6); g.stroke();
+    pPath(g, P, [[a.x + s * 1.3, a.z], [mx - s * 3.3, mz]]); g.stroke();
+    pPath(g, P, [[b.x - s * 1.3, b.z], [mx + s * 3.3, mz]]); g.stroke();
+    pText(g, P, k, id + ' ' + cp.val, mx, mz + 2.9, 1.5, 700);
+  });
+  pRect(g, P, k, 0, -1.27, 10.4, 6.2); g.stroke();
+  var q = P(-5.2, -1.27); g.beginPath(); g.arc(q[0], q[1], 1.0 * k, -Math.PI / 2, Math.PI / 2); g.stroke();
+  pText(g, P, k, 'U1', 0, -0.3, 1.8, 700); pText(g, P, k, 'NE555', 0, -2.4, 1.3, 600);
+  pCirc(g, P, k, -16.51, 7.62, 2.9); g.stroke();
+  g.save(); pCirc(g, P, k, -16.51, 7.62, 2.9); g.clip(); g.lineWidth = 0.18 * k;
+  for (var t = -3; t <= 3; t += 0.7){ pPath(g, P, [[-16.51 + t, 4.5], [-16.51 + t + 1.5, 10.8]]); g.stroke(); }
+  g.restore(); g.fillStyle = c.bare; pRect(g, P, k, -18.1, 7.62, 3.2, 6.2); g.fill(); g.fillStyle = c.silk; g.lineWidth = 0.22 * k;
+  pCirc(g, P, k, -16.51, 7.62, 2.9); g.stroke();
+  drawPads(g, P, k, c, compById(def, 'C1').pins); g.fillStyle = c.silk;
+  pText(g, P, k, '+', -20.4, 7.62, 2.0, 700); pText(g, P, k, 'C1 10µF', -16.51, 11.7, 1.5, 700);
+  var c2 = P(6.35, 10.16); pRound(g, c2[0] - 3.8 * k, c2[1] - 1.2 * k, 7.6 * k, 2.4 * k, 1.1 * k); g.stroke();
+  drawPads(g, P, k, c, compById(def, 'C2').pins); g.fillStyle = c.silk;
+  pText(g, P, k, 'C2 10n', 6.35, 13.0, 1.5, 700);
+  var d1 = P(21.59, 2.54); g.beginPath(); g.arc(d1[0], d1[1], 2.9 * k, 0.6, Math.PI * 2 - 0.6); g.stroke();
+  var e1 = P(21.59 + 2.9 * Math.cos(0.6), 2.54 + 2.9 * Math.sin(0.6)), e2 = P(21.59 + 2.9 * Math.cos(0.6), 2.54 - 2.9 * Math.sin(0.6));
+  g.beginPath(); g.moveTo(e1[0], e1[1]); g.lineTo(e2[0], e2[1]); g.stroke();
+  pText(g, P, k, '+', 17.9, 2.54, 2.0, 700); pText(g, P, k, 'D1', 21.59, 6.7, 1.5, 700);
+  pRect(g, P, k, -27, 0, 8.4, 10.8); g.stroke();
+  pText(g, P, k, '+9V', -21.0, -2.54, 1.4, 700); pText(g, P, k, '0V', -21.4, 2.54, 1.4, 700); pText(g, P, k, 'J1', -27, 6.9, 1.5, 700);
+  pText(g, P, k, 'MIGACZ 555', 19.0, 11.8, 3.0, 700);
+  pText(g, P, k, 'Gorący Grot  GG-01  rev.B', 19.0, 15.0, 1.4, 600);
+};
+
+// ---------- płytka uniwersalna (szkolenie i rozgrzewka) ----------
+function perfXZ(i, j){ return [(i - 9.5) * 2.54, (j - 7) * 2.54]; }
+function perfPins(list){ return list.map(function(p){ var xz = perfXZ(p[1], p[2]); return { n:p[0], x:xz[0], z:xz[1], padR:0.95 }; }); }
+var PERF = {
+  id:'perf', W:54.8, D:42.1, pour:false, edge:0x9a6b37,
+  comps:[
+    { id:'TR', type:'res', body:0x3d74c4, bands:['brown','black','red','gold'], pins:perfPins([['1', 5, 4], ['2', 9, 4]]) },
+    { id:'PR1', type:'res', body:0x3d74c4, bands:['red','red','brown','gold'], pins:perfPins([['1', 3, 3], ['2', 7, 3]]) },
+    { id:'PR2', type:'res', body:0x3d74c4, bands:['yellow','violet','red','gold'], pins:perfPins([['1', 12, 6], ['2', 16, 6]]) },
+    { id:'PR3', type:'res', body:0x3d74c4, bands:['brown','black','red','gold'], pins:perfPins([['1', 6, 10], ['2', 10, 10]]) },
+    { id:'SA', type:'stub', pins:perfPins([['A', 4, 12]]) },
+    { id:'SB', type:'stub', pins:perfPins([['B', 9, 12]]) },
+    { id:'SC', type:'stub', pins:perfPins([['C', 14, 12]]) }
+  ],
+  holes:[]
+};
+PERF.paintTop = function(def, g, P, k, c, w, h){
+  g.fillStyle = c.fr2; g.fillRect(0, 0, w, h);
+  for (var i = 0; i < 20; i++) for (var j = 0; j < 15; j++){
+    var xz = perfXZ(i, j);
+    g.fillStyle = c.fr2cu; pCirc(g, P, k, xz[0], xz[1], 0.95); g.fill();
+    g.fillStyle = c.fr2hole; pCirc(g, P, k, xz[0], xz[1], 0.45); g.fill();
+  }
+};
+PERF.paintBottom = function(def, g, P, k, c, w, h){
+  g.fillStyle = c.fr2; g.fillRect(0, 0, w, h);
+  for (var i = 0; i < 20; i++) for (var j = 0; j < 15; j++){ var xz = perfXZ(i, j); g.fillStyle = c.fr2hole; pCirc(g, P, k, xz[0], xz[1], 0.5); g.fill(); }
+  g.fillStyle = c.fr2silk;
+  for (var a = 0; a < 20; a++){ var xa = perfXZ(a, 0)[0]; pText(g, P, k, String.fromCharCode(65 + a), xa, def.D / 2 - 1.5, 1.2, 600); }
+  for (var r = 0; r < 15; r++){ var zr = perfXZ(0, r)[1]; pText(g, P, k, String(15 - r), -def.W / 2 + 1.5, zr, 1.1, 600); }
+};
+
+// ======================================================================
+// c2_build: płytka 3D, modele elementów, wygląd lutów, obracanie płytki
+// ======================================================================
+var BOARDS = { blink:BLINK, perf:PERF };
+var board = null;
+var boardPivot = new THREE.Group(); boardPivot.position.set(0, BOARD_CY, BOARD_Z); bench.add(boardPivot);
+var flipAnim = null;
+function M(v){ return v * MM; }
+
+var MAT = {
+  lead:  std({ color:0xc9ccd0, metal:1, rough:0.3 }),
+  good:  std({ color:0xe3e6e9, metal:1, rough:0.12, side:THREE.DoubleSide }),
+  dull:  std({ color:0x9a9d9f, metal:1, rough:0.72, side:THREE.DoubleSide }),
+  ic:    std({ color:0x17181a, rough:0.45 }),
+  alu:   std({ color:0xd6d9dc, metal:1, rough:0.3 })
+};
+var BAND = { black:0x1b1b1b, brown:0x6b3a1e, red:0xc0262d, orange:0xe2701c, yellow:0xe9c01d, green:0x2f8a3b, blue:0x2a5bc4, violet:0x7a3fb0, gray:0x8a8d90, white:0xf0f0f0, gold:0xc9a23a };
+var bandMats = {};
+function bandMat(name){ if (!bandMats[name]) bandMats[name] = std({ color:BAND[name], rough:name === 'gold' ? 0.35 : 0.5, metal:name === 'gold' ? 0.8 : 0 }); return bandMats[name]; }
+
+function normalizeDef(def){
+  if (def._norm) return;
+  def.comps.forEach(function(c){ c.pins.forEach(function(p, i){
+    p.comp = c.id; p.idx = i; p.ref = c.id + ':' + i;
+    p.kind = p.kind || (def.pour && p.net === 'GND' ? 'gnd' : 'normal');
+    p.padR = p.padR || KINDS[p.kind].padR;
+  }); });
+  def._norm = true;
+}
+
+// ---------- geometrie wspólne (w milimetrach, skalowane przez MM) ----------
+var GEO = {
+  fillet: (function(){ var pts = [], n = 16; for (var i = 0; i <= n; i++){ var t = i / n; pts.push(new THREE.Vector2(0.36 + (0.97 - 0.36) * Math.pow(1 - t, 2.3), 1.25 * t)); } return new THREE.LatheGeometry(pts, 40); })(),
+  blob: new THREE.SphereGeometry(1, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.62),
+  flux: (function(){ var g = new THREE.CircleGeometry(1, 40), p = g.attributes.position; for (var i = 1; i < p.count; i++){ var x = p.getX(i), y = p.getY(i), th = Math.atan2(y, x), k = 0.86 + 0.12 * Math.sin(3 * th) + 0.07 * Math.sin(7 * th + 1); p.setXY(i, x * k, y * k); } g.rotateX(-Math.PI / 2); return g; })(),
+  ring: (function(){ var g = new THREE.RingGeometry(1.0, 1.9, 36); g.rotateX(-Math.PI / 2); return g; })(),
+  resistor: (function(){ var prof = [[0, -3.15], [0.85, -3.1], [1.18, -2.85], [1.25, -2.3], [1.06, -1.7], [1.0, -1.2], [1.0, 1.2], [1.06, 1.7], [1.25, 2.3], [1.18, 2.85], [0.85, 3.1], [0, 3.15]];
+    return new THREE.LatheGeometry(prof.map(function(p){ return new THREE.Vector2(p[0], p[1]); }), 28); })()
+};
+function profileR(y){ var a = Math.abs(y); if (a > 2.85) return 1.18; if (a > 1.7) return lerp(1.06, 1.25, (a - 1.7) / 0.6); return 1.0; }
+
+// ---------- modele elementów (strona elementów to -y) ----------
+var TOP = 0.8, BOT = -0.8, LEAD_UP = 1.8;
+function lead(grp, pts, r){
+  r = r || 0.3;
+  for (var i = 0; i < pts.length - 1; i++) grp.add(cylBetween(V3(M(pts[i][0]), M(pts[i][1]), M(pts[i][2])), V3(M(pts[i + 1][0]), M(pts[i + 1][1]), M(pts[i + 1][2])), M(r), MAT.lead, 8));
+  for (var j = 1; j < pts.length - 1; j++){ var s = new THREE.Mesh(sphereGeo, MAT.lead); s.scale.setScalar(M(r)); s.position.set(M(pts[j][0]), M(pts[j][1]), M(pts[j][2])); grp.add(s); }
+}
+function buildResistor(c, grp){
+  var a = c.pins[0], b = c.pins[1], by = BOT - 0.5 - 1.25;
+  var mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2, dir = V3(b.x - a.x, 0, b.z - a.z).normalize();
+  var body = new THREE.Mesh(GEO.resistor, std({ color:c.body || 0xd8c49a, rough:0.5 }));
+  body.scale.setScalar(MM); body.position.set(M(mx), M(by), M(mz)); body.quaternion.setFromUnitVectors(_up, dir); grp.add(body);
+  [-2.35, -1.55, -0.75, 2.25].forEach(function(off, i){
+    var nm = c.bands[i], r = profileR(off) + 0.025;
+    var band = cyl(M(r), M(r), M(0.42), bandMat(nm), 28);
+    band.position.set(M(mx + dir.x * off), M(by), M(mz + dir.z * off)); band.quaternion.setFromUnitVectors(_up, dir); grp.add(band);
+  });
+  [[a, -1], [b, 1]].forEach(function(e){
+    var p = e[0], ex = mx + dir.x * 3.1 * e[1], ez = mz + dir.z * 3.1 * e[1];
+    lead(grp, [[ex, by, ez], [p.x, by, p.z], [p.x, TOP + LEAD_UP, p.z]]);
+  });
+}
+function buildElko(c, grp){
+  var plus = c.pins[0], minus = c.pins[1], mx = (plus.x + minus.x) / 2, mz = (plus.z + minus.z) / 2, h = 11, r = 2.5, y0 = BOT - 0.3;
+  var sleeve = canvasTex(256, 128, function(g, w, hh){
+    g.fillStyle = '#1d2f5c'; g.fillRect(0, 0, w, hh);
+    g.fillStyle = '#c9d3e6'; g.fillRect(w * 0.17, 0, w * 0.16, hh);
+    g.fillStyle = '#1d2f5c'; g.font = '700 22px Arial'; g.textAlign = 'center';
+    for (var i = 0; i < 4; i++) g.fillText('−', w * 0.25, 22 + i * 30);
+    g.fillStyle = '#e8ecf4'; g.font = '700 20px Arial';
+    g.save(); g.translate(w * 0.62, hh / 2); g.rotate(-Math.PI / 2); g.fillText('10µF', 0, -8); g.fillText('25V', 0, 16); g.restore();
+  });
+  var body = new THREE.Mesh(new THREE.CylinderGeometry(M(r), M(r), M(h), 32, 1, true), std({ color:0xffffff, map:sleeve, rough:0.35 }));
+  body.position.set(M(mx), M(y0 - h / 2), M(mz));
+  var d = V3(minus.x - mx, 0, minus.z - mz).normalize(); body.rotation.y = Math.atan2(-d.z, d.x); grp.add(body);
+  var capTex = canvasTex(128, 128, function(g, w){ g.fillStyle = '#c9cdd1'; g.fillRect(0, 0, w, w); g.strokeStyle = '#7d8388'; g.lineWidth = 6; g.beginPath(); g.moveTo(20, 64); g.lineTo(108, 64); g.moveTo(64, 20); g.lineTo(64, 108); g.stroke(); });
+  var cap = new THREE.Mesh(new THREE.CircleGeometry(M(r * 0.97), 32), std({ color:0xffffff, map:capTex, metal:1, rough:0.3 }));
+  cap.rotation.x = Math.PI / 2; cap.position.set(M(mx), M(y0 - h - 0.01), M(mz)); grp.add(cap);
+  var rim = new THREE.Mesh(new THREE.TorusGeometry(M(r * 0.97), M(0.18), 8, 32), MAT.alu); rim.rotation.x = Math.PI / 2; rim.position.copy(cap.position); grp.add(rim);
+  var base = cyl(M(r * 0.96), M(r * 0.96), M(0.3), std({ color:0x2a2a2a, rough:0.7 }), 32); base.position.set(M(mx), M(y0 + 0.15), M(mz)); grp.add(base);
+  c.pins.forEach(function(p){ lead(grp, [[p.x, y0, p.z], [p.x, TOP + LEAD_UP, p.z]]); });
+}
+function buildCeramic(c, grp){
+  var a = c.pins[0], b = c.pins[1], mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2, cy = BOT - 1.1 - 2.2;
+  var face = canvasTex(128, 128, function(g, w){ g.fillStyle = '#c87428'; g.fillRect(0, 0, w, w); g.fillStyle = '#2a1608'; g.font = '700 40px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('103', w / 2, w / 2); });
+  var side = std({ color:0xc87428, rough:0.4 }), faceMat = std({ color:0xffffff, map:face, rough:0.4 });
+  var disc = new THREE.Mesh(new THREE.CylinderGeometry(M(2.2), M(2.2), M(1.3), 28), [side, faceMat, faceMat]);
+  var dir = V3(b.x - a.x, 0, b.z - a.z).normalize(), nrm = V3(-dir.z, 0, dir.x);
+  disc.quaternion.setFromUnitVectors(_up, nrm); disc.rotateY(Math.PI / 2); disc.position.set(M(mx), M(cy), M(mz)); grp.add(disc);
+  [[a, -1], [b, 1]].forEach(function(e){ var p = e[0]; lead(grp, [[mx + dir.x * 1.0 * e[1], cy + 1.6, mz + dir.z * 1.0 * e[1]], [p.x, BOT - 0.6, p.z], [p.x, TOP + LEAD_UP, p.z]]); });
+}
+function buildLed(c, grp){
+  var an = c.pins[0], ka = c.pins[1], mx = (an.x + ka.x) / 2, mz = (an.z + ka.z) / 2, y0 = BOT - 1.6;
+  var lensMat = new THREE.MeshStandardMaterial({ color:C(0xd8261c), roughness:0.12, metalness:0, transparent:true, opacity:0.82, emissive:new THREE.Color(1, 0.04, 0.015), emissiveIntensity:0 });
+  var flange = cyl(M(2.9), M(2.9), M(1.0), lensMat, 32); flange.position.set(M(mx), M(y0 - 0.5), M(mz)); grp.add(flange);
+  var body = cyl(M(2.5), M(2.5), M(5.6), lensMat, 32); body.position.set(M(mx), M(y0 - 1.0 - 2.8), M(mz)); grp.add(body);
+  var dome = new THREE.Mesh(new THREE.SphereGeometry(M(2.5), 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), lensMat); dome.rotation.x = Math.PI; dome.position.set(M(mx), M(y0 - 6.6), M(mz)); grp.add(dome);
+  c.pins.forEach(function(p){ lead(grp, [[p.x, y0 - 2.5, p.z], [p.x, TOP + LEAD_UP, p.z]], 0.25); });
+  var light = new THREE.PointLight(C(0xff3020), 0, 0.35, 2); light.position.set(M(mx), M(y0 - 5), M(mz)); grp.add(light);
+  var glowTex = canvasTex(64, 64, function(g){ var gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,120,90,1)'); gr.addColorStop(0.35, 'rgba(255,40,20,0.55)'); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); });
+  var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map:glowTex, color:0xffffff, transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending }));
+  glow.scale.setScalar(M(16)); glow.position.set(M(mx), M(y0 - 5), M(mz)); glow.userData.noShadow = true; grp.add(glow);
+  board.led = { mat:lensMat, light:light, glow:glow };
+}
+function buildDip8(c, grp){
+  var xs = c.pins.map(function(p){ return p.x; }), zs = c.pins.map(function(p){ return p.z; });
+  var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2, cz = (Math.min.apply(null, zs) + Math.max.apply(null, zs)) / 2;
+  var L = 9.8, Wd = 6.35, H = 3.3, y0 = BOT - 0.6;
+  var mark = canvasTex(392, 254, function(g, w, h){
+    g.fillStyle = '#1a1b1d'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#0e0f10'; g.beginPath(); g.arc(0, h / 2, 34, -Math.PI / 2, Math.PI / 2); g.fill();
+    g.fillStyle = '#c7cacc'; g.font = '700 54px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NE555', w / 2 + 10, h / 2 - 22);
+    g.font = '600 30px Arial'; g.fillText('P 2614', w / 2 + 10, h / 2 + 34);
+    g.beginPath(); g.arc(46, h - 46, 12, 0, Math.PI * 2); g.fillStyle = '#0c0d0e'; g.fill();
+  });
+  var markMat = std({ color:0xffffff, map:mark, rough:0.5 });
+  var body = new THREE.Mesh(new THREE.BoxGeometry(M(L), M(H), M(Wd)), [MAT.ic, MAT.ic, MAT.ic, markMat, MAT.ic, MAT.ic]);
+  body.position.set(M(cx), M(y0 - H / 2), M(cz)); grp.add(body);
+  c.pins.forEach(function(p){
+    var s = Math.sign(p.z - cz), zEdge = cz + s * Wd / 2;
+    var sh = box(M(0.9), M(0.25), M(0.9), MAT.lead); sh.position.set(M(p.x), M(y0 - H * 0.45), M(zEdge + s * 0.45)); grp.add(sh);
+    var leg = box(M(0.5), M(TOP + LEAD_UP - (y0 - H * 0.45)), M(0.25), MAT.lead);
+    leg.position.set(M(p.x), M((TOP + LEAD_UP + y0 - H * 0.45) / 2), M(p.z)); grp.add(leg);
+  });
+}
+function buildTerminal(c, grp){
+  var a = c.pins[0], b = c.pins[1], mz = (a.z + b.z) / 2, cx = a.x - 0.9, H = 10, Wx = 7.6, Lz = 10.16;
+  var green = std({ color:0x2e8a4c, rough:0.45 });
+  var topTex = canvasTex(256, 256, function(g, w){
+    g.fillStyle = '#2e8a4c'; g.fillRect(0, 0, w, w);
+    [w * 0.25, w * 0.75].forEach(function(y){
+      g.fillStyle = '#1a4f2c'; g.beginPath(); g.arc(w * 0.58, y, 44, 0, 6.283); g.fill();
+      var gr = g.createRadialGradient(w * 0.55, y - 6, 4, w * 0.58, y, 36); gr.addColorStop(0, '#f1f3f4'); gr.addColorStop(1, '#8c949a');
+      g.fillStyle = gr; g.beginPath(); g.arc(w * 0.58, y, 34, 0, 6.283); g.fill();
+      g.strokeStyle = '#4c5257'; g.lineWidth = 9; g.beginPath(); g.moveTo(w * 0.58 - 28, y); g.lineTo(w * 0.58 + 28, y); g.stroke();
+    });
+  });
+  var sideTex = canvasTex(256, 256, function(g, w){
+    g.fillStyle = '#2e8a4c'; g.fillRect(0, 0, w, w);
+    [w * 0.25, w * 0.75].forEach(function(x){ g.fillStyle = '#0b1f12'; g.fillRect(x - 40, w * 0.38, 80, 70); g.fillStyle = '#9aa1a6'; g.fillRect(x - 30, w * 0.38 + 50, 60, 10); });
+  });
+  var topMat = std({ color:0xffffff, map:topTex, rough:0.45 }), sideMat = std({ color:0xffffff, map:sideTex, rough:0.45 });
+  var body = new THREE.Mesh(new THREE.BoxGeometry(M(Wx), M(H), M(Lz)), [green, sideMat, green, topMat, green, green]);
+  body.position.set(M(cx), M(BOT - H / 2), M(mz)); grp.add(body);
+  c.pins.forEach(function(p){ var pin = box(M(1.0), M(TOP + LEAD_UP + 0.4 - BOT), M(1.0), MAT.lead); pin.position.set(M(p.x), M((TOP + LEAD_UP + 0.4 + BOT) / 2), M(p.z)); grp.add(pin); });
+  board.termWire = c.pins.map(function(p){ return V3(M(cx - Wx / 2 - 1), M(BOT - H * 0.45), M(p.z)); });
+}
+function buildStub(c, grp){ c.pins.forEach(function(p){ lead(grp, [[p.x, BOT - 2.5, p.z], [p.x, TOP + LEAD_UP, p.z]]); }); }
+var BUILDERS = { res:buildResistor, elko:buildElko, cer:buildCeramic, led:buildLed, dip8:buildDip8, term:buildTerminal, stub:buildStub };
+
+// ---------- luty ----------
+function makeJoint(p){
+  var K = KINDS[p.kind], g = new THREE.Group(); g.position.set(M(p.x), M(TOP), M(p.z));
+  var fillet = new THREE.Mesh(GEO.fillet, MAT.good); fillet.visible = false; g.add(fillet);
+  var blob = new THREE.Mesh(GEO.blob, MAT.good); blob.visible = false; g.add(blob);
+  var fluxMat = std({ color:0xb07a22, rough:0.12, opacity:0 }); fluxMat.depthWrite = false;
+  var flux = new THREE.Mesh(GEO.flux, fluxMat); flux.position.y = M(0.04); flux.rotation.y = Math.random() * 6.28; flux.scale.set(M(p.padR * 2), 1, M(p.padR * 2)); flux.visible = false; flux.userData.noShadow = true; g.add(flux);
+  var burntMat = std({ color:0x3a2412, rough:0.9, opacity:0 }); burntMat.depthWrite = false;
+  var burnt = new THREE.Mesh(GEO.ring, burntMat); burnt.position.y = M(0.03); burnt.scale.set(M(p.padR), 1, M(p.padR)); burnt.visible = false; burnt.userData.noShadow = true; g.add(burnt);
+  return { ref:p.ref, pin:p, comp:p.comp, K:K, group:g, fillet:fillet, blob:blob, flux:flux, fluxMat:fluxMat, burnt:burnt, burntMat:burntMat,
+    local:V3(M(p.x), M(TOP + 0.6), M(p.z)), world:V3(), st:freshJoint(), bridgeMesh:null };
+}
+function freshJoint(){ return { heat:0, contact:0, solder:0, cold:0, first:-1, overheat:false, done:false, result:null, q:0, bridgeTo:null, order:false }; }
+function applyLook(j){
+  var s = j.st, pr = j.pin.padR, coldRatio = s.solder > 0 ? s.cold / s.solder : 0;
+  if (s.solder <= 0.01){ j.fillet.visible = false; j.blob.visible = false; }
+  else if (coldRatio > 0.3){
+    j.fillet.visible = false; j.blob.visible = true; j.blob.material = MAT.dull;
+    var rc = pr * 0.75 + Math.min(s.solder, 2.5) * 0.3; j.blob.scale.set(M(rc), M(rc * 1.15), M(rc * 0.85)); j.blob.position.set(M(0.2), 0, M(-0.15));
+  } else if (s.solder > j.K.sMax){
+    j.fillet.visible = false; j.blob.visible = true; j.blob.material = MAT.good;
+    var rx = pr * 1.15 + (Math.min(s.solder, j.K.sMax + 1.5) - j.K.sMax) * 0.45; j.blob.scale.setScalar(M(rx)); j.blob.position.set(0, 0, 0);
+  } else {
+    j.blob.visible = false; j.fillet.visible = true;
+    var k = Math.min(1, s.solder / j.K.sIdeal), over = Math.max(0, (s.solder - j.K.sIdeal) / (j.K.sMax - j.K.sIdeal));
+    j.fillet.scale.set(M(pr * (0.5 + 0.5 * k)), M(Math.max(0.15, k) * (1 + over * 0.35)), M(pr * (0.5 + 0.5 * k)));
+  }
+  j.flux.visible = s.solder > 0.01;
+  if (j.flux.visible){ var fk = Math.min(1, s.solder / j.K.sIdeal); j.fluxMat.opacity = 0.5 * fk; j.flux.scale.set(M(pr * (1.4 + 0.7 * fk)), 1, M(pr * (1.4 + 0.7 * fk))); }
+  j.burnt.visible = s.overheat; if (s.overheat) j.burntMat.opacity = 0.62;
+}
+function resetJoint(j){
+  j.st = freshJoint(); applyLook(j);
+  if (j.bridgeMesh){ boardPivot.remove(j.bridgeMesh); j.bridgeMesh.geometry.dispose(); j.bridgeMesh = null; }
+}
+function neighborOf(j){
+  var best = null, bd = 3.2;
+  board.joints.forEach(function(o){ if (o === j || !o.group.visible) return; var d = Math.hypot(o.pin.x - j.pin.x, o.pin.z - j.pin.z); if (d < bd){ bd = d; best = o; } });
+  return best;
+}
+function addBridge(j, o){
+  var a = V3(M(j.pin.x), M(TOP + 0.45), M(j.pin.z)), b = V3(M(o.pin.x), M(TOP + 0.45), M(o.pin.z));
+  j.bridgeMesh = cylBetween(a, b, M(0.6), MAT.good, 12); j.bridgeMesh.scale.x = 1.6; j.bridgeMesh.castShadow = true;
+  boardPivot.add(j.bridgeMesh);
+}
+function refreshJointWorld(){ if (!board) return; boardPivot.updateMatrixWorld(true); board.joints.forEach(function(j){ j.world.copy(j.local); boardPivot.localToWorld(j.world); }); }
+
+// ---------- ładowanie płytki ----------
+function disposeTree(o){
+  o.traverse(function(n){
+    if (n.geometry && !n.geometry._shared) n.geometry.dispose();
+    if (n.material){ (Array.isArray(n.material) ? n.material : [n.material]).forEach(function(m){ if (m._shared) return; ['map', 'bumpMap', 'roughnessMap'].forEach(function(k){ if (m[k]) m[k].dispose(); }); m.dispose(); }); }
+  });
+}
+[GEO.fillet, GEO.blob, GEO.flux, GEO.ring, GEO.resistor, sphereGeo].forEach(function(g){ g._shared = true; });
+Object.keys(MAT).forEach(function(k){ MAT[k]._shared = true; });
+function loadBoard(id){
+  var def = BOARDS[id]; normalizeDef(def);
+  boardPivot.rotation.set(0, 0, 0); flipAnim = null;
+  if (board && board.def === def){ board.joints.forEach(resetJoint); setLed(0); return board; }
+  if (board){ while (boardPivot.children.length){ var ch = boardPivot.children[0]; boardPivot.remove(ch); disposeTree(ch); } }
+  board = { def:def, comps:{}, joints:[], byRef:{}, led:null, termWire:null };
+  board.mesh = new THREE.Mesh(new THREE.BoxGeometry(M(def.W), M(1.6), M(def.D)), (function(){
+    var top = boardMaterial(paintSides(def, 'top', def.paintTop)), bot = boardMaterial(paintSides(def, 'bottom', def.paintBottom)), e = std({ color:def.edge, rough:0.7 });
+    return [e, e, top, bot, e, e];
+  })());
+  board.mesh.castShadow = true; board.mesh.receiveShadow = true; boardPivot.add(board.mesh);
+  def.comps.forEach(function(c){
+    var g = new THREE.Group(); g.name = c.id; BUILDERS[c.type](c, g);
+    g.traverse(function(n){ if (n.isMesh && !n.userData.noShadow){ n.castShadow = true; n.receiveShadow = true; } });
+    boardPivot.add(g); board.comps[c.id] = g;
+    c.pins.forEach(function(p){ var j = makeJoint(p); boardPivot.add(j.group); board.joints.push(j); board.byRef[p.ref] = j; });
+  });
+  holderArms.forEach(function(arm, i){ arm.position.x = (i ? 1 : -1) * (M(def.W) / 2 + 0.0075); });
+  return board;
+}
+function showComps(ids){
+  if (!board) return;
+  Object.keys(board.comps).forEach(function(id){ var on = !ids || ids.indexOf(id) >= 0; board.comps[id].visible = on; });
+  board.joints.forEach(function(j){ j.group.visible = board.comps[j.comp].visible; });
+}
+function setLed(v){
+  if (!board || !board.led) return;
+  board.led.mat.emissiveIntensity = v * 1.5; board.led.light.intensity = v * 0.5; board.led.glow.material.opacity = v * 0.9;
+}
+function flipBoard(to, dur, done){ flipAnim = { from:boardPivot.rotation.x, to:to, t:0, dur:dur, done:done }; }
+function updateFlip(dt){
+  if (!flipAnim) return;
+  flipAnim.t += dt; var k = reduceMotion ? 1 : ease(flipAnim.t / flipAnim.dur);
+  boardPivot.rotation.x = lerp(flipAnim.from, flipAnim.to, k);
+  boardPivot.position.y = BOARD_CY + Math.sin(k * Math.PI) * 0.03;
+  if (k >= 1){ var d = flipAnim.done; flipAnim = null; boardPivot.position.y = BOARD_CY; if (d) d(); }
+}
+
+// ======================================================================
+// d_tools: lutownica i cyna, sterowanie myszą, dotykiem i kontrolerami VR
+// ======================================================================
+function makeIron(){
+  var g = new THREE.Group();
+  var handle = cyl(0.013, 0.011, 0.11, std({ color:0x24292d, rough:0.75 }), 24); handle.rotation.x = Math.PI / 2; handle.position.z = -0.035; g.add(handle);
+  var gripRing = cyl(0.0125, 0.0125, 0.012, std({ color:0xd2491f, rough:0.5 }), 24); gripRing.rotation.x = Math.PI / 2; gripRing.position.z = -0.085; g.add(gripRing);
+  var tint = canvasTex(16, 256, function(c, w, h){
+    var gr = c.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, '#c9cdd1'); gr.addColorStop(0.55, '#c3c6c8'); gr.addColorStop(0.72, '#c9a35a'); gr.addColorStop(0.86, '#8a5a3a'); gr.addColorStop(1, '#46557e');
+    c.fillStyle = gr; c.fillRect(0, 0, w, h);
+  });
+  var shaft = cyl(0.0045, 0.0035, 0.08, std({ color:0xffffff, map:tint, metal:1, rough:0.28 }), 20); shaft.rotation.x = Math.PI / 2; shaft.position.z = -0.13; g.add(shaft);
+  var tip = new THREE.Mesh(new THREE.ConeGeometry(0.0035, 0.03, 18), std({ color:0xb9bec2, metal:1, rough:0.18 })); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.185; g.add(tip);
+  var cable = cyl(0.003, 0.003, 0.12, std({ color:0x1d2226, rough:0.85 }), 10); cable.rotation.x = Math.PI / 2; cable.position.z = 0.08; g.add(cable);
+  var tipPoint = new THREE.Object3D(); tipPoint.position.z = -0.2; g.add(tipPoint);
+  return { group:g, tipPoint:tipPoint };
+}
+function makeWire(){
+  var g = new THREE.Group(), sMat = std({ color:0xc9cdd1, metal:1, rough:0.32 });
+  var w = cyl(0.0013, 0.0013, 0.16, sMat, 8); w.rotation.x = Math.PI / 2; w.position.z = -0.08; g.add(w);
+  var spool = new THREE.Group(); g.add(spool);
+  var core = cyl(0.016, 0.016, 0.02, sMat, 24); core.rotation.z = Math.PI / 2; core.position.z = 0.02; spool.add(core);
+  var flMat = std({ color:0x2f6aa0, rough:0.4 });
+  [-0.011, 0.011].forEach(function(dx){ var f = cyl(0.024, 0.024, 0.002, flMat, 24); f.rotation.z = Math.PI / 2; f.position.set(dx, 0, 0.02); spool.add(f); });
+  var tail = cyl(0.0013, 0.0013, 0.3, sMat, 8); tail.rotation.x = Math.PI / 2; tail.position.z = 0.15; tail.visible = false; g.add(tail);
+  var tipPoint = new THREE.Object3D(); tipPoint.position.z = -0.16; g.add(tipPoint);
+  return { group:g, tipPoint:tipPoint, spool:spool, tail:tail };
+}
+var iron = makeIron(), wire = makeWire();
+var ironDesk = new THREE.Group(), wireDesk = new THREE.Group(); scene.add(ironDesk); scene.add(wireDesk);
+ironDesk.add(iron.group); wireDesk.add(wire.group);
+var ironVR = new THREE.Group(); ironVR.rotation.x = -0.75;
+var wireVR = new THREE.Group(); wireVR.rotation.x = -0.75;
+[iron.group, wire.group].forEach(function(g){ g.traverse(function(n){ if (n.isMesh){ n.castShadow = true; n.receiveShadow = true; } }); });
+
+var input = { iron:false, solder:false };
+var melting = false, noMelt = false, prevIron = false;
+var IRON_DIR = V3(0.38, 0.78, 0.5).normalize(), WIRE_DIR = V3(-0.62, 0.6, 0.5).normalize();
+var tmpA = V3(), tmpB = V3(), tmpC = V3();
+function mountAt(mount, tip, dir, len){ mount.position.copy(tip).addScaledVector(dir, len); tmpC.copy(mount.position).add(dir); mount.lookAt(tmpC); }
+
+// ---------- mysz, dotyk, klawiatura ----------
+var cv = renderer.domElement, rayc = new THREE.Raycaster(), ndc = new THREE.Vector2();
+var pointerKnown = false, pointerDown = false, solderHeld = false;
+var boardPlane = new THREE.Plane(V3(0, 1, 0), -BT), hit = V3(), smoothTip = V3(), smoothInit = false;
+var isTouch = window.matchMedia('(hover: none)').matches;
+function setNdc(e){ var r = cv.getBoundingClientRect(); ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1; ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1; pointerKnown = true; }
+cv.addEventListener('pointermove', setNdc);
+cv.addEventListener('pointerdown', function(e){
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (e.pointerType !== 'mouse') isTouch = true;
+  initAudio(); setNdc(e); pointerDown = true; try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+});
+cv.addEventListener('pointerup', function(){ pointerDown = false; });
+cv.addEventListener('pointercancel', function(){ pointerDown = false; });
+cv.addEventListener('pointerleave', function(e){ if (e.pointerType === 'mouse' && !pointerDown) pointerKnown = false; });
+cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+var solderBtn = $('solderBtn');
+function setSolder(v){ solderHeld = v; solderBtn.classList.toggle('active', v); solderBtn.setAttribute('aria-pressed', v ? 'true' : 'false'); }
+solderBtn.addEventListener('pointerdown', function(e){ e.preventDefault(); initAudio(); try { solderBtn.setPointerCapture(e.pointerId); } catch (_) {} setSolder(true); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function(t){ solderBtn.addEventListener(t, function(){ setSolder(false); }); });
+solderBtn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+window.addEventListener('blur', function(){ setSolder(false); pointerDown = false; });
+document.addEventListener('visibilitychange', function(){ if (document.hidden){ setSolder(false); pointerDown = false; if (game.state === 'play') pauseGame(); } });
+
+function placeRestingTools(){
+  bench.updateMatrixWorld(true);
+  standTip.getWorldPosition(tmpA); tmpB.copy(STAND_DIR); mountAt(ironDesk, tmpA, tmpB, 0.2);
+  spoolTip.getWorldPosition(tmpA); mountAt(wireDesk, tmpA, WIRE_REST_DIR, 0.16);
+  smoothInit = false;
+}
+function updateDesktopTools(j, active){
+  wire.spool.visible = !active; wire.tail.visible = active;
+  if (!active){ placeRestingTools(); input.iron = false; input.solder = false; return; }
+  boardPlane.constant = -(BT + bench.position.y);
+  var target = null;
+  if (pointerKnown){ rayc.setFromCamera(ndc, camera); if (rayc.ray.intersectPlane(boardPlane, hit)){ hit.x = clamp(hit.x, -0.34, 0.34); hit.z = clamp(hit.z, BOARD_Z - 0.2, BOARD_Z + 0.22); target = hit; } }
+  if (!target){ tmpA.set(0.17, BT, BOARD_Z + 0.1); target = tmpA; }
+  var near = !!j && Math.hypot(target.x - j.world.x, target.z - j.world.z) < Math.max(0.011, j.K.touch * 1.3);
+  input.iron = !!j && pointerDown && near;
+  if (input.iron) tmpB.set(j.world.x + M(0.9), j.world.y - M(0.1), j.world.z + M(0.5));
+  else tmpB.set(target.x, BT + (pointerDown ? 0.007 : 0.03), target.z);
+  if (!smoothInit){ smoothTip.copy(tmpB); smoothInit = true; } else smoothTip.lerp(tmpB, input.iron ? 1 : 0.55);
+  mountAt(ironDesk, smoothTip, IRON_DIR, 0.2);
+  input.solder = !!j && solderHeld;
+  if (j){
+    if (input.solder) tmpB.set(j.world.x - M(1.0), j.world.y - M(0.1), j.world.z - M(0.3));
+    else tmpB.set(j.world.x - 0.035, j.world.y + 0.05, j.world.z + 0.015);
+    mountAt(wireDesk, tmpB, WIRE_DIR, 0.16);
+  }
+}
+
+// ---------- gogle VR: chwyty, przyciski, wibracje ----------
+var grips = [0, 1].map(function(i){
+  var grip = renderer.xr.getControllerGrip(i); scene.add(grip);
+  var info = { grip:grip, src:null };
+  grip.addEventListener('connected', function(e){ info.src = e.data; assignMounts(); });
+  grip.addEventListener('disconnected', function(){ info.src = null; assignMounts(); });
+  return info;
+});
+var ironSrc = null, wireSrc = null;
+function assignMounts(){
+  ironSrc = wireSrc = null;
+  grips.forEach(function(info){
+    if (!info.src) return;
+    var holdsIron = (info.src.handedness === 'left') === !!save.settings.swap;
+    if (holdsIron){ info.grip.add(ironVR); ironSrc = info.src; } else { info.grip.add(wireVR); wireSrc = info.src; }
+  });
+  panelDirty = true;
+}
+function gripOf(src){ for (var i = 0; i < grips.length; i++) if (grips[i].src === src) return grips[i].grip; return null; }
+function pulse(src, v, ms){ try { var h = src && src.gamepad && src.gamepad.hapticActuators && src.gamepad.hapticActuators[0]; if (h && h.pulse) h.pulse(v, ms); } catch (_) {} }
+var padState = new Map();
+function pollPads(dt){
+  var s = renderer.xr.getSession(); if (!s) return;
+  for (var i = 0; i < s.inputSources.length; i++){
+    var src = s.inputSources[i], gp = src.gamepad; if (!gp) continue;
+    var st = padState.get(src); if (!st){ st = { b:[], stick:0, rep:0 }; padState.set(src, st); }
+    var pressed = function(n){ return !!(gp.buttons[n] && gp.buttons[n].pressed); };
+    [[0, 'select'], [4, 'select'], [5, 'back']].forEach(function(m){ var now = pressed(m[0]); if (now && !st.b[m[0]]) onVRAction(m[1], src); st.b[m[0]] = now; });
+    var y = gp.axes.length > 3 ? gp.axes[3] : (gp.axes[1] || 0), dir = y < -0.6 ? -1 : (y > 0.6 ? 1 : 0);
+    if (dir !== st.stick){ st.stick = dir; st.rep = 0.45; if (dir) onVRAction(dir < 0 ? 'up' : 'down', src); }
+    else if (dir){ st.rep -= dt; if (st.rep <= 0){ st.rep = 0.18; onVRAction(dir < 0 ? 'up' : 'down', src); } }
+  }
+}
+function updateVRTools(j, active){
+  input.iron = false; input.solder = false;
+  if (!active || !j) return;
+  var best = null, bd = 1e9, tip = tmpA;
+  if (ironVR.parent){
+    iron.tipPoint.getWorldPosition(tip);
+    board.joints.forEach(function(o){ if (!o.group.visible) return; var d = tip.distanceTo(o.world); if (d < bd){ bd = d; best = o; } });
+    input.iron = best === j && bd < j.K.touch;
+  }
+  if (wireVR.parent){ wire.tipPoint.getWorldPosition(tmpB); input.solder = tmpB.distanceTo(j.world) < j.K.touch * 1.5; }
+}
+
+// ---------- kalibracja wysokości stołu (gogle) ----------
+function applyBench(){
+  var b = (renderer.xr.isPresenting && save.bench) ? save.bench : { x:0, y:0, z:0 };
+  bench.position.set(b.x, b.y, b.z); syncBenchLights(); bench.updateMatrixWorld(true); refreshJointWorld();
+}
+function calibrateFrom(src){
+  var g = gripOf(src); if (!g) return false;
+  g.getWorldPosition(tmpA);
+  save.bench = { x:tmpA.x, y:tmpA.y - 0.03 - TABLE_TOP, z:tmpA.z - BOARD_Z };
+  persist(); applyBench(); return true;
+}
+
+// ======================================================================
+// e_play: fizyka lutu, ocena, punkty, efekty, test układu
+// ======================================================================
+var FX = new THREE.Group(); scene.add(FX);
+var softTex = canvasTex(64, 64, function(g){ var gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); });
+var smoke = [], sparks = [], popups = [];
+for (var si = 0; si < 40; si++){
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:softTex, color:C(0xeef2f5), transparent:true, opacity:0, depthWrite:false }));
+  sp.visible = false; FX.add(sp); smoke.push({ m:sp, life:0, alive:false, seed:0 });
+}
+for (var ki = 0; ki < 36; ki++){
+  var sk = new THREE.Sprite(new THREE.SpriteMaterial({ map:softTex, color:new THREE.Color(1.6, 1.25, 0.5), transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending, toneMapped:false }));
+  sk.visible = false; FX.add(sk); sparks.push({ m:sk, v:V3(), life:0, alive:false });
+}
+var smokeAcc = 0, smokeIdx = 0, sparkIdx = 0;
+function emitSmoke(at, dt){
+  smokeAcc += dt * 18;
+  while (smokeAcc >= 1){
+    smokeAcc -= 1; var p = smoke[smokeIdx++ % smoke.length];
+    p.alive = true; p.life = 0; p.seed = Math.random() * 6.28; p.m.visible = true; p.m.material.rotation = p.seed;
+    p.m.position.set(at.x + (Math.random() - 0.5) * 0.006, at.y + 0.004, at.z + (Math.random() - 0.5) * 0.006);
+  }
+}
+function burst(at, n){
+  for (var i = 0; i < n; i++){
+    var p = sparks[sparkIdx++ % sparks.length], a = Math.random() * Math.PI * 2, up = 0.25 + Math.random() * 0.35;
+    p.alive = true; p.life = 0; p.m.visible = true; p.m.position.copy(at);
+    p.v.set(Math.cos(a) * 0.12 * Math.random(), up, Math.sin(a) * 0.12 * Math.random());
+  }
+}
+function popup(at, text, color){
+  var c = document.createElement('canvas'); c.width = 768; c.height = 160; var g = c.getContext('2d'), fs = 92;
+  do { g.font = '700 ' + fs + 'px "Chakra Petch", Barlow, Arial, sans-serif'; fs -= 4; } while (g.measureText(text).width > 720 && fs > 40);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 14; g.strokeStyle = 'rgba(5,20,12,0.85)'; g.strokeText(text, 384, 84); g.fillStyle = color || '#ffd166'; g.fillText(text, 384, 84);
+  var tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false, toneMapped:false }));
+  s.scale.set(0.15, 0.03125, 1); s.position.copy(at).add(V3(0, 0.03, 0)); s.renderOrder = 10; FX.add(s);
+  popups.push({ s:s, life:0 });
+  while (popups.length > 4){ var o = popups.shift(); FX.remove(o.s); o.s.material.map.dispose(); o.s.material.dispose(); }
+}
+function updateFX(dt){
+  smoke.forEach(function(p){
+    if (!p.alive) return; p.life += dt; var L = p.life / 1.8;
+    if (L >= 1){ p.alive = false; p.m.visible = false; return; }
+    p.m.position.y += dt * 0.05; p.m.position.x += Math.sin(p.life * 2.2 + p.seed) * dt * 0.014;
+    p.m.scale.setScalar(0.008 + L * 0.032); p.m.material.opacity = 0.3 * Math.min(1, L * 6) * (1 - L);
+  });
+  sparks.forEach(function(p){
+    if (!p.alive) return; p.life += dt; var L = p.life / 0.7;
+    if (L >= 1){ p.alive = false; p.m.visible = false; return; }
+    p.v.y -= dt * 0.9; p.m.position.addScaledVector(p.v, dt * 0.35);
+    p.m.scale.setScalar(0.007 * (1 - L) + 0.002); p.m.material.opacity = 1 - L;
+  });
+  for (var i = popups.length - 1; i >= 0; i--){
+    var o = popups[i]; o.life += dt; o.s.position.y += dt * 0.025; o.s.material.opacity = clamp(2.2 - o.life, 0, 1);
+    if (o.life > 2.2){ FX.remove(o.s); o.s.material.map.dispose(); o.s.material.dispose(); popups.splice(i, 1); }
+  }
+}
+
+// ---------- stan rozgrywki ----------
+var run = null;   // bieżący poziom
+function newRun(level){
+  return { level:level, stepIdx:-1, step:null, targets:[], ti:0, score:0, combo:0, best:0, perfectStreak:0,
+    stats:{ joints:0, perfect:0, good:0, fail:0, cold:0, bridge:0, much:0, little:0, overheat:0, sumQ:0 },
+    quizOk:0, quizN:0, timeLeft:0, timed:false, cool:0, exam:false, guided:false, newBadges:[], xp:0, circuit:null, hadBridgeRisk:false };
+}
+function curJoint(){ return run && run.targets[run.ti] ? run.targets[run.ti] : null; }
+function multiplier(){ return 1 + Math.min(run.combo, 6) * 0.25; }
+function award(id){
+  if (save.badges[id]) return; save.badges[id] = Date.now(); persist();
+  var b = badgeById(id); if (b){ run && run.newBadges.push(b); toast('Nowa odznaka: ' + b.name); sfx.badge(); }
+}
+function stepJoint(dt){
+  var j = curJoint(); if (!j) return;
+  var s = j.st, K = j.K;
+  if (input.iron){ s.heat = Math.min(s.heat + dt, 4); s.contact += dt; } else s.heat = Math.max(0, s.heat - dt * 0.9);
+  if (s.contact > K.overheat) s.overheat = true;
+  if (input.solder){
+    if (s.heat >= K.heatNeed){ s.solder += dt * FEED; melting = true; }
+    else if (input.iron){ s.solder += dt * FEED * 0.6; s.cold += dt * FEED * 0.6; melting = true; }
+    else noMelt = true;
+    if (melting && s.first < 0) s.first = s.contact;
+  }
+  applyLook(j);
+  if (prevIron && !input.iron && s.solder > 0.05) finishJoint(j, input.solder);
+  prevIron = input.iron;
+}
+var RESULT_TXT = {
+  good:'Dobry lut: błyszczący, wklęsły stożek.',
+  cold:'Zimny lut: cyna trafiła na niedogrzane połączenie, jest matowa i może nie przewodzić. Najpierw grzej, potem podawaj cynę.',
+  much:'Za dużo cyny: zamiast stożka powstała kulka. Odsuń cynę wcześniej.',
+  little:'Za mało cyny: pole nie jest całe pokryte. Podawaj cynę odrobinę dłużej.',
+  bridge:'Mostek: nadmiar cyny połączył dwa sąsiednie pola. W prawdziwym układzie to zwarcie.',
+  overheat:'Przegrzanie: grot był przyłożony za długo, pole się przypaliło i może odpaść od płytki.'
+};
+var RESULT_SHORT = { good:'dobry', cold:'zimny lut', much:'za dużo cyny', little:'za mało cyny', bridge:'mostek', overheat:'przegrzane pole' };
+function finishJoint(j, solderStillOn){
+  var s = j.st, K = j.K, coldRatio = s.solder > 0 ? s.cold / s.solder : 0, res;
+  if (s.overheat) res = 'overheat';
+  else if (coldRatio > 0.3) res = 'cold';
+  else if (s.solder > K.sMax){ var nb = neighborOf(j); if (nb){ res = 'bridge'; s.bridgeTo = nb.ref; addBridge(j, nb); } else res = 'much'; }
+  else if (s.solder < K.sMin) res = 'little';
+  else res = 'good';
+  var q;
+  if (res === 'good'){
+    var dev = s.solder >= K.sIdeal ? (s.solder - K.sIdeal) / (K.sMax - K.sIdeal) : (K.sIdeal - s.solder) / (K.sIdeal - K.sMin);
+    q = 100 - dev * 22 - Math.max(0, s.contact - (K.heatNeed + 3)) * 9 - (solderStillOn ? 12 : 0) - Math.max(0, coldRatio - 0.05) * 60;
+    q = clamp(Math.round(q), 60, 100);
+  } else q = { little:40, much:30, bridge:15, cold:20, overheat:10 }[res];
+  s.result = res; s.q = q; s.done = true; s.order = !!solderStillOn;
+  applyLook(j);
+  var st = run.stats; st.joints++; st.sumQ += q;
+  var perfect = res === 'good' && q >= 90, pts = 0, msg = RESULT_TXT[res];
+  if (res === 'good'){
+    st.good++; run.combo++; run.best = Math.max(run.best, run.combo);
+    if (perfect){ st.perfect++; run.perfectStreak++; } else run.perfectStreak = 0;
+    pts = Math.round((q * 10 + (perfect ? 250 : 0)) * multiplier());
+    run.xp += perfect ? 35 : 20;
+    award('first');
+    if (perfect && s.contact < 3) award('quick');
+    if (run.perfectStreak >= 5) award('combo5');
+    if (perfect){ burst(j.world, 18); sfx.perfect(); popup(j.world, 'PERFEKCYJNY  +' + fmt(pts)); msg = 'Perfekcyjny lut! ' + msg; }
+    else { sfx.good(); popup(j.world, 'DOBRY  +' + fmt(pts), '#86e6b0'); }
+    if (run.combo >= 2) sfx.combo(Math.min(run.combo, 8));
+  } else {
+    st.fail++; st[res]++; run.combo = 0; run.perfectStreak = 0; run.xp += 5;
+    pts = q * 3; sfx.bad(); popup(j.world, RESULT_SHORT[res].toUpperCase(), '#ffb4a8');
+  }
+  if (s.order) msg += ' Kolejność: najpierw odsuń cynę, potem grot.';
+  if (res !== 'good' && j.K.note && (res === 'cold' || res === 'little')) msg += ' ' + j.K.note;
+  run.score += pts;
+  feedback = { text:msg, tone: res === 'good' ? 'good' : 'bad' };
+  if (renderer.xr.isPresenting) pulse(ironSrc, res === 'good' ? 0.35 : 0.8, res === 'good' ? 60 : 180);
+  if (run.level.board === 'blink' && !run.level.fresh){
+    save.board[j.ref] = { r:res, q:q, s:+s.solder.toFixed(2), c:+s.cold.toFixed(2), o:s.overheat ? 1 : 0, b:s.bridgeTo };
+    persist();
+  }
+  game.state = 'cool'; run.cool = 0.9; prevIron = false;
+  hudDirty = true;
+}
+function restoreJoint(j, rec){
+  j.st = freshJoint();
+  j.st.solder = rec.s; j.st.cold = rec.c; j.st.overheat = !!rec.o; j.st.result = rec.r; j.st.q = rec.q; j.st.done = true; j.st.bridgeTo = rec.b || null;
+  applyLook(j);
+  if (rec.r === 'bridge' && rec.b && board.byRef[rec.b]) addBridge(j, board.byRef[rec.b]);
+}
+
+// ---------- test układu: migacz 555 ----------
+var power = null, wires = [];
+function evalCircuit(getSt){
+  var shorts = [], opens = [], flick = [], weak = [];
+  board.joints.forEach(function(j){
+    var s = getSt(j);
+    if (!s || !s.done){ opens.push(j); return; }
+    if (s.result === 'bridge'){ var o = board.byRef[s.bridgeTo]; if (o && o.pin.net !== j.pin.net) shorts.push(j); }
+    else if (s.result === 'overheat') opens.push(j);
+    else if (s.result === 'cold') flick.push(j);
+    else if (s.result === 'little') weak.push(j);
+  });
+  var outcome = shorts.length ? 'short' : (opens.length ? 'dead' : (flick.length ? 'flicker' : 'works'));
+  return { outcome:outcome, shorts:shorts, opens:opens, flick:flick, weak:weak };
+}
+function jointName(j){ var c = j.pin.comp, p = j.pin; return c + (p.lab ? ' (' + p.lab + ')' : ' nóżka ' + p.n); }
+function circuitText(ev){
+  var list = function(a){ return a.slice(0, 3).map(jointName).join(', ') + (a.length > 3 ? ' i ' + (a.length - 3) + ' inne' : ''); };
+  if (ev.outcome === 'works') return 'Dioda miga mniej więcej raz na sekundę (f ≈ 0,99 Hz przy R1 = 10 kΩ, R2 = 68 kΩ, C1 = 10 µF). Układ działa!' + (ev.weak.length ? ' Słabsze luty z małą ilością cyny: ' + list(ev.weak) + '. Działają, ale mogą się z czasem poluzować.' : '');
+  if (ev.outcome === 'short') return 'Zwarcie! Mostek przy ' + list(ev.shorts) + ' łączy dwa różne obwody. Dioda nie świeci, a bateria się grzeje.';
+  if (ev.outcome === 'dead') return 'Dioda nie świeci: brak połączenia przy ' + list(ev.opens) + '.';
+  return 'Dioda miga nieregularnie i gaśnie. Winne są zimne luty: ' + list(ev.flick) + '. Tak wygląda typowa usterka w prawdziwych urządzeniach.';
+}
+function makeWireMesh(a, b, color){
+  var mid = a.clone().lerp(b, 0.5); mid.y += 0.06;
+  var curve = new THREE.CatmullRomCurve3([a, a.clone().lerp(mid, 0.5).add(V3(0, 0.02, 0)), mid, mid.clone().lerp(b, 0.5).add(V3(0, 0.015, 0)), b]);
+  var m = new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.0022, 8, false), std({ color:color, rough:0.45 }));
+  m.castShadow = true; return m;
+}
+function connectBattery(){
+  batteryGroup.visible = true; bench.updateMatrixWorld(true); boardPivot.updateMatrixWorld(true);
+  var snapW = batteryGroup.localToWorld(V3(-0.032, 0.002, 0));
+  board.termWire.forEach(function(lp, i){
+    var end = boardPivot.localToWorld(lp.clone()), start = snapW.clone().add(V3(0, 0, i ? -0.005 : 0.005));
+    var m = makeWireMesh(start, end, i ? 0x1d1f21 : 0xc62f25); scene.add(m); wires.push(m);
+  });
+}
+function removeBattery(){ batteryGroup.visible = false; wires.forEach(function(m){ scene.remove(m); m.geometry.dispose(); m.material.dispose(); }); wires = []; }
+function startPower(ev, done){
+  power = { ev:ev, t:-1.9, done:done, phase:0 };
+  shot = 'show'; flipBoard(Math.PI, 1.4, function(){ connectBattery(); sfx.power(); power.phase = 1; });
+}
+function updatePower(dt){
+  if (!power) return;
+  power.t += dt;
+  if (power.phase >= 1 && power.t > 0){
+    var o = power.ev.outcome, on = 0;
+    if (o === 'works'){ var ph = power.t % 1.01; on = ph < 0.54 ? 1 : 0; }
+    else if (o === 'flicker'){ on = Math.random() < ((power.t % 3) < 0.8 ? 0.45 : 0.06) ? Math.random() : 0; }
+    setLed(on);
+    if (o === 'works' && power.lastOn !== on){ if (on && power.phase === 1) sfx.tick(); power.lastOn = on; }
+    if (power.phase === 1 && power.t > 4.5){ power.phase = 2; power.done(); }
+  }
+}
+function endPower(){ power = null; setLed(0); removeBattery(); }
+
+// ======================================================================
+// f_ui: okna dialogowe (ekran i gogle), HUD, komunikaty, panel w VR
+// ======================================================================
+var feedback = { text:'', tone:'' };
+var hudDirty = true, panelDirty = true, vrToast = null;
+var dlg = { m:null, sel:0 };
+
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+function vrOpts(m){ return (m.opts || []).filter(function(o){ return !o.domOnly; }); }
+function showDialog(m){
+  dlg.m = m; var list = vrOpts(m), sel = -1, i;
+  for (i = 0; i < list.length; i++) if (!list[i].disabled && list[i].primary){ sel = i; break; }
+  if (sel < 0) for (i = 0; i < list.length; i++) if (!list[i].disabled){ sel = i; break; }
+  dlg.sel = Math.max(0, sel);
+  var ov = $('dlg'), box = $('dlgBox'), opts = $('dlgOpts');
+  ov.className = 'overlay' + (m.sheet ? ' sheet' : ''); ov.hidden = false;
+  box.className = 'pcb dialog' + (m.cls ? ' ' + m.cls : '');
+  $('dlgChip').hidden = !m.chip; $('dlgChip').textContent = m.chip || '';
+  $('dlgTitle').textContent = m.title || '';
+  $('dlgBody').innerHTML = m.body || '';
+  opts.innerHTML = '';
+  var groups = {};
+  (m.opts || []).forEach(function(o){
+    if (o.vrOnly) return;
+    var gname = o.group || 'actions', cont = groups[gname];
+    if (!cont){ cont = document.createElement('div'); cont.className = gname === 'tiles' ? 'levels' : 'grp-' + gname; groups[gname] = cont; opts.appendChild(cont); }
+    var b = document.createElement('button'); b.type = 'button';
+    if (gname === 'tiles'){ b.className = 'tile'; b.innerHTML = o.html; }
+    else if (o.key){ b.className = 'answer' + (o.state ? ' ' + o.state : ''); b.innerHTML = '<span class="key">' + o.key + '</span><span>' + esc(o.label) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</span>'; }
+    else { b.className = o.primary ? 'primary' : ''; b.innerHTML = esc(o.label) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : ''); }
+    if (o.disabled) b.disabled = true;
+    if (o.aria) b.setAttribute('aria-label', o.aria);
+    b.addEventListener('click', function(){ initAudio(); chooseOption(o); });
+    cont.appendChild(b); o._el = b;
+  });
+  if (groups.actions && groups.tiles) opts.appendChild(groups.actions);
+  if (m.footer){ var ft = document.createElement('div'); ft.innerHTML = m.footer; opts.appendChild(ft); }
+  var first = (m.opts || []).filter(function(o){ return !o.vrOnly && !o.disabled; });
+  var focusOn = first.filter(function(o){ return o.primary; })[0] || first[0];
+  if (focusOn && focusOn._el && !isTouch) setTimeout(function(){ try { focusOn._el.focus({ preventScroll:true }); } catch (_) {} }, 30);
+  panelDirty = true;
+}
+function hideDialog(){ dlg.m = null; $('dlg').hidden = true; panelDirty = true; }
+function chooseOption(o){ if (!o || o.disabled) return; sfx.click(); o.act(); }
+document.addEventListener('keydown', function(e){
+  if (dlg.m){
+    var keyed = (dlg.m.opts || []).filter(function(o){ return o.key && !o.disabled && !o.vrOnly; });
+    for (var i = 0; i < keyed.length; i++) if (String(keyed[i].key) === e.key){ e.preventDefault(); chooseOption(keyed[i]); return; }
+    if (e.key === 'Escape' && dlg.m.back){ e.preventDefault(); dlg.m.back(); }
+    return;
+  }
+  if (game.state === 'play' || game.state === 'cool'){
+    if (e.code === 'Space'){ e.preventDefault(); if (!e.repeat){ initAudio(); setSolder(true); } }
+    else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P'){ e.preventDefault(); pauseGame(); }
+  }
+});
+document.addEventListener('keyup', function(e){ if (e.code === 'Space'){ e.preventDefault(); setSolder(false); } });
+function onVRAction(a, src){
+  if (game.state === 'calib'){ if (a === 'select'){ if (calibrateFrom(src)){ sfx.right(); toast('Stół ustawiony'); afterCalib(); } } else if (a === 'back') afterCalib(); return; }
+  if (dlg.m){
+    var list = vrOpts(dlg.m); if (!list.length) return;
+    if (a === 'up' || a === 'down'){
+      var d = a === 'up' ? -1 : 1, i = dlg.sel;
+      for (var n = 0; n < list.length; n++){ i = (i + d + list.length) % list.length; if (!list[i].disabled) break; }
+      if (i !== dlg.sel){ dlg.sel = i; sfx.move(); panelDirty = true; pulse(src, 0.08, 15); }
+    } else if (a === 'select'){ pulse(src, 0.2, 30); chooseOption(list[dlg.sel]); }
+    else if (a === 'back' && dlg.m.back){ dlg.m.back(); }
+    return;
+  }
+  if ((game.state === 'play' || game.state === 'cool') && a === 'back') pauseGame();
+}
+function toast(text){
+  var el = document.createElement('div'); el.className = 't'; el.textContent = text; $('toast').appendChild(el);
+  setTimeout(function(){ el.remove(); }, 2800);
+  vrToast = { text:text, t:2.8 }; panelDirty = true;
+}
+
+// ---------- HUD ----------
+var lastHudKey = '';
+function setZones(j){
+  if (!j) return;
+  $('heatZone').style.left = (100 / 1.7).toFixed(1) + '%'; $('heatZone').style.right = '0';
+  var full = j.K.sMax * 1.35;
+  $('solderZone').style.left = (j.K.sMin / full * 100).toFixed(1) + '%';
+  $('solderZone').style.right = (100 - j.K.sMax / full * 100).toFixed(1) + '%';
+}
+function renderHud(h){
+  if (!h) return;
+  var key = [h.code, h.name, h.title, h.hint, h.guided, h.meters, h.feedback, h.tone, h.score, h.combo, h.timer, h.timerLow, h.prog.join('')].join('|');
+  if (key !== lastHudKey){
+    lastHudKey = key; panelDirty = true;
+    $('hudCode').textContent = h.code; $('hudName').textContent = h.name; $('hudTitle').textContent = h.title;
+    var hint = $('hudHint'); hint.textContent = h.hint; hint.className = 'hint' + (h.guided ? ' guided' : '');
+    $('hudMeters').hidden = !h.meters;
+    var fb = $('hudFeedback'); fb.textContent = h.feedback; fb.className = 'feedback' + (h.tone ? ' ' + h.tone : '');
+    $('scoreNum').textContent = fmt(h.score); $('comboTxt').textContent = h.combo;
+    var tm = $('timerTxt'); tm.textContent = h.timer; tm.className = 'timer' + (h.timerLow ? ' low' : '');
+    var pg = $('hudProg');
+    if (pg.children.length !== h.prog.length){ pg.innerHTML = ''; h.prog.forEach(function(){ pg.appendChild(document.createElement('i')); }); }
+    h.prog.forEach(function(c, i){ pg.children[i].className = c; });
+  }
+  if (h.meters){
+    $('heatFill').style.width = (h.heatFrac * 100).toFixed(1) + '%'; $('heatFill').classList.toggle('warn', h.long);
+    $('solderFill').style.width = (h.solderFrac * 100).toFixed(1) + '%';
+    if ($('heatTxt').textContent !== h.heatTxt) $('heatTxt').textContent = h.heatTxt;
+    if ($('solderTxt').textContent !== h.solderTxt) $('solderTxt').textContent = h.solderTxt;
+  }
+}
+function showHud(on){ $('hud').hidden = !on; $('controls').hidden = !on; document.body.classList.toggle('playing', on); }
+
+// ---------- panel w goglach ----------
+var PW = 1024, PH = 768, PFD = '"Chakra Petch", Barlow, Arial, sans-serif', PFB = 'Barlow, Arial, sans-serif';
+var pc = document.createElement('canvas'); pc.width = PW; pc.height = PH; var pg2 = pc.getContext('2d');
+var panelTex = new THREE.CanvasTexture(pc); panelTex.encoding = THREE.sRGBEncoding; panelTex.anisotropy = maxAniso;
+var panel = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.48), new THREE.MeshBasicMaterial({ map:panelTex, transparent:true, toneMapped:false }));
+panel.position.set(0, BT + 0.33, BOARD_Z - 0.31); panel.rotation.x = -0.16; panel.visible = false; bench.add(panel);
+function rr(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function wrap(g, text, x, y, maxW, lh, maxLines){
+  var words = String(text).split(' '), line = '', n = 0;
+  for (var i = 0; i < words.length; i++){
+    var t = line ? line + ' ' + words[i] : words[i];
+    if (g.measureText(t).width > maxW && line){ if (maxLines && n === maxLines - 1){ g.fillText(line + '…', x, y); return y + lh; } g.fillText(line, x, y); y += lh; n++; line = words[i]; } else line = t;
+  }
+  if (line){ g.fillText(line, x, y); y += lh; }
+  return y;
+}
+function panelBase(g){
+  g.clearRect(0, 0, PW, PH);
+  rr(g, 4, 4, PW - 8, PH - 8, 26); g.fillStyle = '#0f5b37'; g.fill();
+  rr(g, 22, 22, PW - 44, PH - 44, 14); g.lineWidth = 3; g.strokeStyle = 'rgba(243,246,241,0.6)'; g.stroke();
+  [[40, 40], [PW - 40, 40], [40, PH - 40], [PW - 40, PH - 40]].forEach(function(p){ g.fillStyle = '#cfd3ce'; g.beginPath(); g.arc(p[0], p[1], 11, 0, 6.283); g.fill(); g.fillStyle = '#07120d'; g.beginPath(); g.arc(p[0], p[1], 6, 0, 6.283); g.fill(); });
+  g.textBaseline = 'top'; g.textAlign = 'left';
+}
+function chipAt(g, text, x, y){ g.font = '700 26px ' + PFD; var w = g.measureText(text).width + 22; rr(g, x, y, w, 40, 5); g.lineWidth = 3; g.strokeStyle = '#eef6f0'; g.stroke(); g.fillStyle = '#eef6f0'; g.fillText(text, x + 11, y + 7); return w; }
+function drawDialogPanel(m){
+  var g = pg2, x = 66, w = PW - 132, y = 62; panelBase(g);
+  if (m.chip){ var cw = chipAt(g, m.chip, x, y); g.font = '700 46px ' + PFD; g.fillStyle = '#eef6f0'; wrap(g, m.title, x + cw + 16, y - 4, w - cw - 16, 52, 1); y += 64; }
+  else { g.font = '700 50px ' + PFD; g.fillStyle = '#eef6f0'; y = wrap(g, m.title, x, y, w, 56, 2) + 6; }
+  g.font = '400 29px ' + PFB; g.fillStyle = 'rgba(238,246,240,0.82)';
+  (m.vr || []).forEach(function(line){ y = wrap(g, line, x, y, w, 37, 4) + 8; });
+  var list = vrOpts(m), rowH = 58, maxRows = Math.max(2, Math.floor((PH - 120 - y) / rowH)), start = 0;
+  if (list.length > maxRows) start = clamp(dlg.sel - Math.floor(maxRows / 2), 0, list.length - maxRows);
+  y = Math.max(y + 4, PH - 104 - Math.min(list.length, maxRows) * rowH);
+  for (var i = start; i < Math.min(list.length, start + maxRows); i++){
+    var o = list[i], sel = i === dlg.sel;
+    rr(g, x, y, w, rowH - 10, 8);
+    if (sel){ g.fillStyle = '#ff8a3d'; g.fill(); } else { g.lineWidth = 2; g.strokeStyle = o.state === 'right' ? '#86e6b0' : (o.state === 'wrong' ? '#ffb4a8' : 'rgba(243,246,241,0.45)'); g.stroke(); }
+    g.font = '600 28px ' + PFB; g.fillStyle = sel ? '#1c0b02' : (o.disabled ? 'rgba(238,246,240,0.4)' : '#eef6f0');
+    var label = (o.key ? o.key + '.  ' : '') + (o.vrLabel || o.label);
+    wrap(g, label, x + 18, y + 9, w - 36 - (o.right ? 160 : 0), 30, 1);
+    if (o.right){ g.textAlign = 'right'; g.fillText(o.right, x + w - 18, y + 9); g.textAlign = 'left'; }
+    y += rowH;
+  }
+  g.font = '500 23px ' + PFB; g.fillStyle = 'rgba(238,246,240,0.6)';
+  g.fillText('Gałka: wybór.  Spust lub A: zatwierdź.' + (m.back ? '  B: wróć.' : ''), x, PH - 78);
+  drawToastStrip(g);
+}
+function meterAt(g, label, val, frac, z0, z1, color, x, y, w){
+  g.font = '500 28px ' + PFB; g.fillStyle = 'rgba(238,246,240,0.75)'; g.fillText(label, x, y);
+  g.textAlign = 'right'; g.font = '600 28px ' + PFB; g.fillStyle = '#eef6f0'; g.fillText(val, x + w, y); g.textAlign = 'left';
+  rr(g, x, y + 40, w, 26, 13); g.fillStyle = 'rgba(0,0,0,0.32)'; g.fill();
+  if (frac > 0.005){ rr(g, x, y + 40, Math.max(26, w * frac), 26, 13); g.fillStyle = color; g.fill(); }
+  g.fillStyle = 'rgba(134,230,176,0.25)'; g.fillRect(x + w * z0, y + 40, w * (z1 - z0), 26);
+  g.fillStyle = '#86e6b0'; g.fillRect(x + w * z0 - 2, y + 35, 4, 36); g.fillRect(x + w * z1 - 2, y + 35, 4, 36);
+}
+function drawHudPanel(h){
+  var g = pg2, x = 66, w = PW - 132, y = 62; panelBase(g);
+  var cw = chipAt(g, h.code, x, y); g.font = '600 28px ' + PFD; g.fillStyle = 'rgba(238,246,240,0.8)'; g.fillText(h.name, x + cw + 14, y + 6);
+  g.textAlign = 'right'; g.font = '700 40px ' + PFD; g.fillStyle = '#eef6f0'; g.fillText(fmt(h.score) + ' pkt', x + w, y - 2);
+  g.font = '700 24px ' + PFD; g.fillStyle = h.timerLow ? '#ffb4a8' : '#ffd166'; g.fillText([h.combo, h.timer].filter(Boolean).join('   '), x + w, y + 44); g.textAlign = 'left';
+  y += 82;
+  var segW = (w - (h.prog.length - 1) * 6) / Math.max(1, h.prog.length);
+  h.prog.forEach(function(c, i){ g.fillStyle = c === 'good' ? '#86e6b0' : (c === 'bad' ? '#ffb4a8' : (c === 'now' ? '#ffd166' : 'rgba(238,246,240,0.2)')); rr(g, x + i * (segW + 6), y, segW, 9, 4); g.fill(); });
+  y += 28;
+  g.font = '700 46px ' + PFD; g.fillStyle = '#eef6f0'; y = wrap(g, h.title, x, y, w, 52, 1) + 6;
+  g.font = (h.guided ? '600 36px ' : '400 34px ') + PFB; g.fillStyle = h.guided ? '#eef6f0' : 'rgba(238,246,240,0.82)'; y = wrap(g, h.hint, x, y, w, 44, 3) + 16;
+  if (h.meters){
+    var mw = (w - 32) / 2, j = curJoint(), full = j ? j.K.sMax * 1.35 : 2;
+    meterAt(g, 'Temperatura', h.heatTxt, h.heatFrac, 1 / 1.7, 1, h.long ? '#ffb4a8' : '#ff8a3d', x, y, mw);
+    meterAt(g, 'Cyna', h.solderTxt, h.solderFrac, j ? j.K.sMin / full : 0.3, j ? j.K.sMax / full : 0.74, '#cfd3ce', x + mw + 32, y, mw);
+    y += 96;
+  }
+  if (h.feedback){ g.font = '500 30px ' + PFB; g.fillStyle = h.tone === 'good' ? '#86e6b0' : '#ffb4a8'; wrap(g, h.feedback, x, y, w, 38, 4); }
+  g.font = '500 23px ' + PFB; g.fillStyle = 'rgba(238,246,240,0.6)';
+  g.fillText('Lutownica w ' + (save.settings.swap ? 'lewej' : 'prawej') + ' ręce.  B: pauza.', x, PH - 78);
+  drawToastStrip(g);
+}
+function drawCalibPanel(){
+  var g = pg2, x = 66, w = PW - 132, y = 70; panelBase(g);
+  g.font = '700 50px ' + PFD; g.fillStyle = '#eef6f0'; g.fillText('Ustaw stół', x, y); y += 80;
+  g.font = '400 32px ' + PFB; g.fillStyle = 'rgba(238,246,240,0.85)';
+  y = wrap(g, 'Połóż kontroler płasko na prawdziwym biurku, w miejscu, gdzie ma leżeć płytka.', x, y, w, 42) + 14;
+  y = wrap(g, 'Naciśnij spust na tym kontrolerze. Wirtualny stół dopasuje się do blatu.', x, y, w, 42) + 14;
+  g.font = '500 23px ' + PFB; g.fillStyle = 'rgba(238,246,240,0.6)'; g.fillText('B: anuluj.', x, PH - 78);
+  drawToastStrip(g);
+}
+function drawToastStrip(g){
+  if (!vrToast) return;
+  rr(g, 66, PH - 150, PW - 132, 54, 10); g.fillStyle = '#0b4a2c'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#ffd166'; g.stroke();
+  g.font = '600 27px ' + PFB; g.fillStyle = '#ffd166'; g.fillText(vrToast.text, 86, PH - 138);
+}
+var panelClock = 0;
+function updatePanel(dt, h){
+  if (!renderer.xr.isPresenting){ panel.visible = false; return; }
+  panel.visible = true;
+  if (vrToast){ vrToast.t -= dt; if (vrToast.t <= 0){ vrToast = null; panelDirty = true; } }
+  panelClock += dt;
+  if (!panelDirty || panelClock < 0.06) return;
+  panelClock = 0; panelDirty = false;
+  if (game.state === 'calib') drawCalibPanel();
+  else if (dlg.m) drawDialogPanel(dlg.m);
+  else if (h) drawHudPanel(h);
+  else { panelBase(pg2); }
+  panelTex.needsUpdate = true;
+}
+
+// ======================================================================
+// g_flow: poziomy, quizy, menu, wyniki, pauza, sesje VR/AR, pętla, start
+// ======================================================================
+var game = { state:'loading', t:0, speed:1, prev:null, calibBack:null };
+var EXAM_PINS = ['R1:0','R1:1','R2:0','R2:1','R3:0','R3:1','C1:0','C1:1','C2:0','C2:1','D1:0','D1:1','U1:0','U1:1','U1:2','U1:3','U1:4','U1:5','U1:6','U1:7','J1:0','J1:1'];
+var LEVELS = [
+  { id:'tut', code:'L0', name:'Szkolenie', sub:'BHP, pierwszy lut i ocena lutów', board:'perf', show:['TR','SA','SB','SC'],
+    intro:'Trzy krótkie części: zasady bezpieczeństwa, pierwszy lut krok po kroku i rozpoznawanie dobrych oraz złych lutów.',
+    steps:[ { t:'quiz', set:'bhp' }, { t:'solder', pins:['TR:0','TR:1'], guided:true }, { t:'samples' } ] },
+  { id:'warm', code:'L1', name:'Rozgrzewka', sub:'Trzy rezystory na płytce uniwersalnej', board:'perf', show:['PR1','PR2','PR3'],
+    intro:'Sześć lutów na zwykłej płytce. Celuj w zieloną strefę na obu wskaźnikach. Dobre luty z rzędu podbijają mnożnik punktów.',
+    steps:[ { t:'solder', pins:['PR1:0','PR1:1','PR2:0','PR2:1','PR3:0','PR3:1'] } ] },
+  { id:'res', code:'L2', name:'Rezystory', sub:'Migacz 555, część 1', board:'blink',
+    intro:'Prawdziwa płytka migacza. Lutujesz rezystory R1, R2 i R3. Płytka zapamiętuje Twoje luty aż do testu układu.',
+    steps:[ { t:'solder', pins:['R1:0','R1:1','R2:0','R2:1','R3:0','R3:1'] } ] },
+  { id:'pol', code:'L3', name:'Polaryzacja', sub:'Dioda i kondensatory', board:'blink',
+    intro:'Elementy z biegunami trzeba włożyć właściwą stroną. Najpierw dwa pytania, potem luty. Pola masy łączą się z dużą miedzią, więc grzeją się dłużej.',
+    steps:[ { t:'quiz', set:'pol' }, { t:'solder', pins:['C1:0','C1:1','C2:0','C2:1','D1:0','D1:1'] } ] },
+  { id:'ic', code:'L4', name:'Układ scalony', sub:'Osiem nóżek bez mostka', board:'blink',
+    intro:'Nóżki scalaka są co 2,54 mm. Za dużo cyny i powstaje mostek, czyli zwarcie. Masz 90 sekund, a za zapas czasu dostajesz premię.',
+    steps:[ { t:'quiz', set:'ic' }, { t:'solder', pins:['U1:0','U1:1','U1:2','U1:3','U1:4','U1:5','U1:6','U1:7'], timer:90 } ] },
+  { id:'start', code:'L5', name:'Start!', sub:'Zasilanie i test układu', board:'blink',
+    intro:'Ostatnie dwa luty to duże pola złącza zasilania. Potem płytka się obraca, podłączasz baterię 9 V i sprawdzasz, czy migacz działa.',
+    steps:[ { t:'solder', pins:['J1:0','J1:1'] }, { t:'power' } ] },
+  { id:'exam', code:'L6', name:'Egzamin mistrza', sub:'22 luty, 5 minut, bez wskaźników', board:'blink', fresh:true,
+    intro:'Nowa płytka i cały układ od zera. Wskaźniki są wyłączone: oceniaj po wyglądzie cyny, dymie i syczeniu topnika. Na koniec test układu.',
+    steps:[ { t:'solder', pins:EXAM_PINS, timer:300, exam:true }, { t:'power' } ] }
+];
+var QUIZ = {
+  bhp:[
+    { q:'Jak trzymasz lutownicę?', a:['Tylko za rękojeść, bo grot ma około 350 °C', 'Za metalową część, jest stabilniej', 'Jak wygodnie, byle szybko'], ok:0, why:'Grot i trzonek nagrzewają się do kilkuset stopni. Trzymaj lutownicę jak długopis, wyłącznie za rękojeść.' },
+    { q:'Gdzie odkładasz lutownicę, gdy jej nie używasz?', a:['Na blat, grotem do góry', 'Zawsze do podstawki', 'Na matę antystatyczną'], ok:1, why:'Podstawka chroni przed oparzeniem i przed przypaleniem kabla albo blatu.' },
+    { q:'Po co pochłaniacz dymu przy lutowaniu?', a:['Żeby cyna szybciej stygła', 'Żeby było ciszej', 'Dym z topnika podrażnia drogi oddechowe'], ok:2, why:'Topnik w cynie paruje i tworzy drażniący dym. Pochłaniacz odciąga go sprzed twarzy.' }
+  ],
+  pol:[
+    { q:'Dioda LED ma dłuższą i krótszą nóżkę. Którą wkładasz w pole oznaczone „+”?', a:['Krótszą, to katoda', 'Dłuższą, to anoda', 'Obojętnie, dioda działa w obie strony'], ok:1, why:'Dłuższa nóżka to anoda (+). Krótsza, przy spłaszczeniu obudowy, to katoda (−). Odwrotnie włożona dioda nie zaświeci.' },
+    { q:'Na kondensatorze elektrolitycznym jest jasny pasek z minusami. Co oznacza?', a:['Nóżkę ujemną (−)', 'Nóżkę dodatnią (+)', 'Datę produkcji'], ok:0, why:'Pasek wskazuje minus. Odwrotnie włożony elektrolit może się nagrzać i spuchnąć.' }
+  ],
+  ic:[
+    { q:'Jak znaleźć nóżkę 1 układu scalonego?', a:['Zawsze w prawym dolnym rogu', 'Przy wycięciu lub kropce na obudowie', 'Po kolorze nóżki'], ok:1, why:'Wycięcie lub kropka oznacza początek numeracji. Patrząc z góry na obudowę, nóżki liczy się dalej przeciwnie do ruchu wskazówek zegara.' }
+  ]
+};
+var SAMPLES = [
+  { ref:'SA:0', solder:1.0, cold:0.7, ok:1, why:'Matowa, grudkowata kulka, która nie rozpłynęła się po polu. Cynę podano na zimne połączenie.' },
+  { ref:'SB:0', solder:1.0, cold:0, ok:0, why:'Błyszczący, wklęsły stożek, a cyna pokrywa całe pole i obejmuje nóżkę. Tak ma wyglądać każdy lut.' },
+  { ref:'SC:0', solder:2.3, cold:0, ok:2, why:'Wypukła kulka zamiast stożka. Nadmiar cyny łatwo tworzy mostek z sąsiednim polem.' }
+];
+var SAMPLE_ANS = ['Dobry: błyszczący, wklęsły stożek', 'Zimny: matowy i grudkowaty', 'Za dużo cyny: wypukła kulka', 'Za mało cyny: odsłonięte pole'];
+var xrSupport = { vr:false, ar:false }, xrMode = null;
+
+function levelIndex(L){ return LEVELS.indexOf(L); }
+function unlocked(i){ return i === 0 || (save.stars[LEVELS[i - 1].id] || 0) >= 1; }
+function starsHtml(n, cls){ var s = ''; for (var i = 0; i < 3; i++) s += '<i class="dot' + (i < n ? ' on' : '') + '"></i>'; return '<span class="' + (cls || 'st') + '" aria-label="' + n + ' z 3 gwiazdek">' + s + '</span>'; }
+function jointLabel(j){
+  var p = j.pin, c = p.comp;
+  if (c === 'TR') return 'rezystor, ' + (p.idx ? 'prawa' : 'lewa') + ' nóżka';
+  if (/^PR/.test(c)) return 'rezystor ' + c.slice(2) + ', ' + (p.idx ? 'prawa' : 'lewa') + ' nóżka';
+  return c + ', ' + (p.lab || 'nóżka ' + p.n) + (p.kind === 'gnd' && !p.lab ? ' (masa)' : '');
+}
+function controlsHtml(){
+  if (isTouch) return '<p>Sterowanie: przytrzymaj palec na zaznaczonym polu, to grot lutownicy. Drugim palcem przytrzymaj przycisk „Podaj cynę”.</p>';
+  return '<p>Sterowanie: przytrzymaj przycisk myszy na zaznaczonym polu, to grot lutownicy. Cynę podajesz, trzymając spację. Pauza: Esc.</p>';
+}
+function controlsVR(){ return 'W goglach: lutownica w ' + (save.settings.swap ? 'lewej' : 'prawej') + ' ręce, cyna w drugiej. Dotknij grotem pola i nóżki, potem dotknij nóżki drutem cyny.'; }
+function shuffle(a){ a = a.slice(); for (var i = a.length - 1; i > 0; i--){ var k = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[k]; a[k] = t; } return a; }
+
+// ---------- menu ----------
+function restoreStory(skipRefs){
+  board.joints.forEach(function(j){
+    if (skipRefs && skipRefs.indexOf(j.ref) >= 0){ resetJoint(j); return; }
+    var rec = save.board[j.ref]; if (rec) restoreJoint(j, rec); else resetJoint(j);
+  });
+}
+function openMenu(){
+  endPower(); hideDialog(); showHud(false); setSolder(false); setSizzle(false);
+  run = null; game.state = 'menu'; shot = 'menu'; feedback = { text:'', tone:'' };
+  loadBoard('blink'); restoreStory(null); showComps(null); refreshJointWorld();
+  var ri = rankInfo(save.xp), vr = renderer.xr.isPresenting;
+  var body = '<p class="brand-sub">Trening lutowania przewlekanego. Lutuj, zbieraj gwiazdki i uruchom migacz 555.</p>' +
+    '<div class="rank"><div class="rank-row"><span>' + ri.cur.name + '</span><span>' + fmt(save.xp) + ' XP</span></div>' +
+    '<div class="trace"><i style="width:' + Math.round(ri.frac * 100) + '%"></i></div>' +
+    '<p class="rank-next">' + (ri.next ? 'Do rangi ' + ri.next.name + ': ' + fmt(ri.next.xp - save.xp) + ' XP' : 'Najwyższa ranga. Szacunek!') + '</p></div>';
+  var opts = [], nextIdx = 0;
+  LEVELS.forEach(function(L, i){ if (unlocked(i) && !(save.stars[L.id] >= 1)) nextIdx = nextIdx || i; });
+  if (!nextIdx && save.stars[LEVELS[0].id]) nextIdx = -1;
+  LEVELS.forEach(function(L, i){
+    var st = save.stars[L.id] || 0, open = unlocked(i), best = save.best[L.id];
+    opts.push({ group:'tiles', disabled:!open, primary:i === Math.max(0, nextIdx),
+      html:'<span class="chip">' + L.code + '</span><span class="nm">' + esc(L.name) + '</span><span class="sb">' + esc(open ? L.sub : 'Zdobądź gwiazdkę w poprzednim poziomie') + '</span>' + starsHtml(st) + (best ? '<span class="sb">Rekord: ' + fmt(best) + ' pkt</span>' : ''),
+      vrLabel:L.code + '  ' + L.name, right:open ? st + '/3' : 'zablokowany', label:L.name, act:function(){ startLevel(L); } });
+  });
+  if (xrSupport.vr && !vr) opts.push({ label:'Wejdź do VR', sub:'gogle Meta Quest', domOnly:true, act:function(){ enterXR('vr'); } });
+  if (xrSupport.ar && !vr) opts.push({ label:'Wejdź w AR', sub:'płytka na Twoim biurku', domOnly:true, act:function(){ enterXR('ar'); } });
+  opts.push({ label:'Dźwięk: ' + (save.settings.sound ? 'włączony' : 'wyłączony'), act:function(){ setSound(!save.settings.sound); openMenu(); } });
+  if (vr){
+    opts.push({ label:'Ustaw wysokość stołu', vrOnly:true, act:function(){ startCalib(openMenu); } });
+    opts.push({ label:'Zamień ręce (lutownica w ' + (save.settings.swap ? 'lewej' : 'prawej') + ')', vrOnly:true, act:function(){ swapHands(); openMenu(); } });
+    opts.push({ label:'Wyjdź z ' + (xrMode === 'ar' ? 'AR' : 'VR'), vrOnly:true, act:function(){ var s = renderer.xr.getSession(); if (s) s.end(); } });
+  }
+  opts.push({ label:'Wyzeruj postęp', domOnly:true, act:confirmReset });
+  var footer = '<div class="badges">' + BADGES.map(function(b){ return '<span class="badge' + (save.badges[b.id] ? ' got' : '') + '" title="' + esc(b.desc) + '">' + esc(b.name) + '</span>'; }).join('') + '</div>';
+  showDialog({ cls:'menu', title:'Gorący Grot', body:body, footer:footer, opts:opts,
+    vr:[ri.cur.name + ', ' + fmt(save.xp) + ' XP. ' + (ri.next ? 'Do rangi ' + ri.next.name + ': ' + fmt(ri.next.xp - save.xp) + ' XP.' : '')] });
+}
+function confirmReset(){
+  showDialog({ title:'Wyzerować postęp?', body:'<p>Znikną gwiazdki, rekordy, odznaki i luty na płytce migacza. Tego nie da się cofnąć.</p>',
+    opts:[ { label:'Anuluj', primary:true, act:openMenu }, { label:'Wyzeruj', act:function(){ var keep = save.settings; save = defaultSave(); save.settings = keep; persist(); toast('Postęp wyzerowany'); openMenu(); } } ], back:openMenu });
+}
+function swapHands(){ save.settings.swap = !save.settings.swap; persist(); assignMounts(); toast('Lutownica w ' + (save.settings.swap ? 'lewej' : 'prawej') + ' ręce'); }
+function startCalib(back){ hideDialog(); game.calibBack = back; game.calibPrev = game.state; game.state = 'calib'; panelDirty = true; }
+function afterCalib(){ game.state = game.calibPrev || 'menu'; var b = game.calibBack; game.calibBack = null; if (b) b(); }
+
+// ---------- poziom ----------
+function startLevel(L){
+  hideDialog(); endPower(); setSolder(false); showHud(false);
+  run = newRun(L); feedback = { text:'', tone:'' };
+  loadBoard(L.board); showComps(L.show || null);
+  var pins = []; L.steps.forEach(function(S){ if (S.pins) pins = pins.concat(S.pins); });
+  if (L.board === 'blink'){ if (L.fresh) board.joints.forEach(resetJoint); else restoreStory(pins); }
+  refreshJointWorld(); shot = 'work'; game.state = 'intro';
+  var how = renderer.xr.isPresenting ? '<p>' + esc(controlsVR()) + '</p>' : controlsHtml();
+  showDialog({ chip:L.code, title:L.name, body:'<p class="lead">' + esc(L.intro) + '</p>' + how, vr:[L.intro, controlsVR()],
+    opts:[ { label:'Zaczynam', primary:true, act:function(){ hideDialog(); nextStep(); } }, { label:'Menu', act:openMenu } ], back:openMenu });
+}
+function nextStep(){
+  run.stepIdx++; var S = run.level.steps[run.stepIdx];
+  if (!S){ finishLevel(); return; }
+  run.step = S;
+  if (S.t === 'quiz') startQuiz(QUIZ[S.set], S.set);
+  else if (S.t === 'solder') startSolder(S);
+  else if (S.t === 'samples') startSamples();
+  else if (S.t === 'power') startPowerStep();
+}
+function startQuiz(qs, setId){
+  var i = 0, ok = 0; showHud(false); game.state = 'quiz';
+  function ask(){
+    var Q = qs[i];
+    showDialog({ chip:run.level.code, title:'Pytanie ' + (i + 1) + ' z ' + qs.length, body:'<p class="lead">' + esc(Q.q) + '</p>', vr:[Q.q],
+      opts:Q.a.map(function(a, k){ return { group:'list', key:k + 1, label:a, act:function(){ answer(k); } }; }), back:pauseFromDialog });
+  }
+  function answer(k){
+    var Q = qs[i], right = k === Q.ok; if (right){ ok++; sfx.right(); } else sfx.wrong();
+    run.quizN++; if (right) run.quizOk++;
+    showDialog({ chip:run.level.code, title:right ? 'Dobrze!' : 'Nie tym razem', body:'<p class="lead">' + esc(Q.q) + '</p><p class="' + (right ? 'good' : 'bad') + '">' + esc(Q.why) + '</p>', vr:[Q.why],
+      opts:Q.a.map(function(a, n){ return { group:'list', key:n + 1, label:a, disabled:true, state:n === Q.ok ? 'right' : (n === k ? 'wrong' : '') }; })
+        .concat([ { label:i + 1 < qs.length ? 'Następne pytanie' : 'Dalej', primary:true, act:function(){ i++; if (i < qs.length) ask(); else { if (setId === 'bhp' && ok === qs.length) award('bhp'); hideDialog(); nextStep(); } } } ]) });
+  }
+  ask();
+}
+function startSolder(S){
+  run.targets = S.pins.map(function(r){ return board.byRef[r]; }).filter(Boolean);
+  run.targets.forEach(resetJoint);
+  run.ti = 0; run.guided = !!S.guided; run.exam = !!S.exam; run.timed = !!S.timer; run.timeLeft = S.timer || 0;
+  setZones(run.targets[0]); prevIron = false; feedback = { text:'', tone:'' };
+  shot = 'work'; showHud(true); game.state = 'play'; hudDirty = true;
+}
+function advanceTarget(){
+  run.ti++;
+  if (run.ti >= run.targets.length) endSolderStep(false);
+  else { game.state = 'play'; setZones(curJoint()); }
+}
+function endSolderStep(timeUp){
+  setSolder(false); setSizzle(false);
+  if (timeUp){
+    var missed = run.targets.filter(function(t){ return !t.st.done; }).length;
+    run.stats.fail += missed; run.missed = (run.missed || 0) + missed; toast('Koniec czasu! Pominięte luty: ' + missed); sfx.fail();
+  } else if (run.timed && run.timeLeft > 0){ var bonus = Math.round(run.timeLeft * 20); run.score += bonus; toast('Premia za czas: +' + fmt(bonus)); }
+  run.timed = false; showHud(false); nextStep();
+}
+function startSamples(){
+  showHud(false); shot = 'samples'; game.state = 'samples';
+  SAMPLES.forEach(function(sm){ var j = board.byRef[sm.ref]; j.st = freshJoint(); j.st.solder = sm.solder; j.st.cold = sm.cold; j.st.done = true; applyLook(j); });
+  var order = shuffle(SAMPLES), i = 0;
+  function ask(){
+    var sm = order[i]; run.sample = board.byRef[sm.ref];
+    showDialog({ sheet:true, chip:run.level.code, title:'Oceń lut ' + (i + 1) + ' z ' + order.length, body:'<p>Spójrz na lut w pierścieniu. Jak go oceniasz?</p>', vr:['Spójrz na lut w pierścieniu na płytce. Jak go oceniasz?'],
+      opts:SAMPLE_ANS.map(function(a, k){ return { group:'list', key:k + 1, label:a, act:function(){ answer(k); } }; }), back:pauseFromDialog });
+  }
+  function answer(k){
+    var sm = order[i], right = k === sm.ok; run.quizN++; if (right){ run.quizOk++; sfx.right(); } else sfx.wrong();
+    showDialog({ sheet:true, chip:run.level.code, title:right ? 'Trafiona ocena' : 'To nie to', body:'<p class="' + (right ? 'good' : 'bad') + '">' + esc(sm.why) + '</p>', vr:[sm.why],
+      opts:SAMPLE_ANS.map(function(a, n){ return { group:'list', key:n + 1, label:a, disabled:true, state:n === sm.ok ? 'right' : (n === k ? 'wrong' : '') }; })
+        .concat([ { label:i + 1 < order.length ? 'Następny lut' : 'Dalej', primary:true, act:function(){ i++; if (i < order.length) ask(); else { run.sample = null; hideDialog(); nextStep(); } } } ]) });
+  }
+  ask();
+}
+function startPowerStep(){
+  var ev = evalCircuit(function(j){ return j.st.done ? j.st : null; });
+  run.circuit = ev; showHud(false); game.state = 'power';
+  startPower(ev, function(){ if (ev.outcome === 'works') award('blink'); nextStep(); });
+}
+function finishLevel(){
+  var L = run.level, st = run.stats, solderSteps = L.steps.some(function(S){ return S.t === 'solder'; });
+  var avgQ = st.joints ? st.sumQ / st.joints : 0, fails = st.fail, stars = 1;
+  if (solderSteps){
+    if (avgQ >= 85 && fails === 0) stars = 3; else if (avgQ >= 70 && fails <= 1) stars = 2;
+    if (!st.joints) stars = 0;
+  }
+  if (run.quizN && run.quizOk < run.quizN) stars = Math.min(stars, 2);
+  if (run.circuit && run.circuit.outcome !== 'works') stars = Math.min(stars, 1);
+  stars = Math.max(stars, st.joints || !solderSteps ? 1 : 0);
+  var prevStars = save.stars[L.id] || 0, prevBest = save.best[L.id] || 0;
+  save.stars[L.id] = Math.max(prevStars, stars); save.best[L.id] = Math.max(prevBest, run.score);
+  var xp = run.xp + stars * 50 + (run.quizOk * 10); save.xp += xp;
+  if (L.id === 'tut') save.tutorialDone = true;
+  persist();
+  if (st.joints >= 4 && st.cold === 0 && !run.missed) award('nocold');
+  if (L.id === 'ic' && st.bridge === 0 && !run.missed) award('nobridge');
+  if (L.id === 'exam' && stars === 3) award('master');
+  if (LEVELS.every(function(l){ return (save.stars[l.id] || 0) >= 3; })) award('all3');
+  sfx.level(); game.state = 'results'; shot = run.circuit ? 'show' : 'work';
+  showResults(stars, prevBest, xp, avgQ);
+}
+function showResults(stars, prevBest, xp, avgQ){
+  var L = run.level, st = run.stats, i = levelIndex(L), next = LEVELS[i + 1], ri = rankInfo(save.xp);
+  var lines = [], body = starsHtml(stars, 'stars');
+  body += '<div class="statgrid"><div class="stat"><b>' + fmt(run.score) + '</b><span>punkty' + (run.score > prevBest && prevBest ? ', nowy rekord!' : '') + '</span></div>' +
+    '<div class="stat"><b>' + st.perfect + '</b><span>perfekcyjne luty</span></div><div class="stat"><b>' + st.fail + '</b><span>błędy</span></div></div>';
+  if (run.circuit){ var ct = circuitText(run.circuit); body += '<p class="' + (run.circuit.outcome === 'works' ? 'good' : 'bad') + '">' + esc(ct) + '</p>'; lines.push(ct); }
+  if (st.joints) { var ql = 'Średnia jakość lutów: ' + Math.round(avgQ) + '%. Najdłuższa seria: ' + run.best + '.'; body += '<p>' + ql + '</p>'; lines.push(ql); }
+  if (run.quizN){ var qz = 'Odpowiedzi: ' + run.quizOk + ' z ' + run.quizN + ' poprawnych.'; body += '<p>' + qz + '</p>'; lines.push(qz); }
+  if (run.circuit && run.circuit.outcome !== 'works' && !L.fresh) { var fx = 'Popraw wskazane luty, powtarzając wcześniejsze poziomy, a potem wróć tutaj.'; body += '<p>' + fx + '</p>'; lines.push(fx); }
+  var xl = '+' + fmt(xp) + ' XP. Ranga: ' + ri.cur.name + (ri.next ? ', do rangi ' + ri.next.name + ' brakuje ' + fmt(ri.next.xp - save.xp) + ' XP.' : '.');
+  body += '<p>' + xl + '</p>'; lines.unshift(stars + ' z 3 gwiazdek, ' + fmt(run.score) + ' pkt.'); lines.push(xl);
+  var opts = [];
+  if (next && unlocked(i + 1)) opts.push({ label:'Dalej: ' + next.name, primary:true, act:function(){ startLevel(next); } });
+  opts.push({ label:'Jeszcze raz', primary:!opts.length, act:function(){ startLevel(L); } });
+  opts.push({ label:'Menu', act:openMenu });
+  showDialog({ cls:'results', sheet:!!run.circuit, chip:L.code, title:stars === 3 ? 'Mistrzowsko!' : (stars === 2 ? 'Dobra robota' : 'Zaliczone'), body:body, vr:lines, opts:opts, back:openMenu });
+}
+function pauseGame(){
+  if (game.state !== 'play' && game.state !== 'cool') return;
+  game.prev = game.state; game.state = 'pause'; setSolder(false); pointerDown = false; setSizzle(false);
+  openPause();
+}
+function pauseFromDialog(){ var m = dlg.m; game.prevDialog = m; game.prev = game.state; game.state = 'pause'; openPause(); }
+function resumeGame(){
+  hideDialog(); game.state = game.prev || 'play'; prevIron = false;
+  if (game.prevDialog){ var m = game.prevDialog; game.prevDialog = null; showDialog(m); }
+}
+function openPause(){
+  var vr = renderer.xr.isPresenting, opts = [
+    { label:'Wznów', primary:true, act:resumeGame },
+    { label:'Zacznij poziom od nowa', act:function(){ game.prevDialog = null; startLevel(run.level); } },
+    { label:'Menu', act:function(){ game.prevDialog = null; openMenu(); } },
+    { label:'Dźwięk: ' + (save.settings.sound ? 'włączony' : 'wyłączony'), act:function(){ setSound(!save.settings.sound); openPause(); } }
+  ];
+  if (vr){
+    opts.push({ label:'Ustaw wysokość stołu', vrOnly:true, act:function(){ startCalib(openPause); } });
+    opts.push({ label:'Zamień ręce', vrOnly:true, act:function(){ swapHands(); openPause(); } });
+  }
+  showDialog({ chip:run.level.code, title:'Pauza', body:'<p>' + esc(run.level.name) + ': ' + fmt(run.score) + ' pkt.</p>', vr:[run.level.name + ': ' + fmt(run.score) + ' pkt.'], opts:opts, back:resumeGame });
+}
+
+// ---------- HUD ----------
+function hintFor(j){
+  if (game.state === 'cool') return 'Lut stygnie. Nie ruszaj płytki.';
+  if (!j) return '';
+  var s = j.st, K = j.K, vr = renderer.xr.isPresenting;
+  var feedHow = vr ? 'dotknij drutem cyny nóżki' : (isTouch ? 'przytrzymaj przycisk „Podaj cynę”' : 'przytrzymaj spację');
+  var touchHow = vr ? 'Dotknij grotem' : (isTouch ? 'Przytrzymaj palec na' : 'Przytrzymaj przycisk myszy na');
+  if (run.guided){
+    if (noMelt) return 'Cyna się nie topi, bo połączenie jest zimne. Najpierw grot, potem cyna.';
+    if (!input.iron && s.solder <= 0.01) return touchHow + ' zaznaczonym polu. Grot ma dotykać jednocześnie pola i nóżki.';
+    if (input.iron && s.heat < K.heatNeed && s.solder <= 0.01) return 'Trzymaj grot i patrz na pierścień. Gdy zrobi się zielony, połączenie jest gorące.';
+    if (input.iron && s.solder < K.sIdeal * 0.85) return 'Gorące! Teraz ' + feedHow + ', z drugiej strony niż grot.';
+    if (input.iron && input.solder) return 'Wystarczy cyny. Odsuń cynę' + (vr ? '.' : (isTouch ? ': puść przycisk.' : ': puść spację.'));
+    if (input.iron) return 'Na końcu odsuń grot' + (vr ? '.' : (isTouch ? ': podnieś palec.' : ': puść przycisk myszy.'));
+    return 'Przyłóż grot ponownie i dokończ lut.';
+  }
+  if (run.exam) return noMelt ? 'Cyna się nie topi.' : (input.iron ? (melting ? 'Cyna płynie…' : 'Grzejesz…') : 'Patrz na cynę, nie na wskaźniki.');
+  if (noMelt) return 'Cyna się nie topi. Najpierw rozgrzej połączenie grotem.';
+  if (input.iron && s.contact > K.overheat - 1.5) return 'Za długo! Odsuń cynę i grot.';
+  if (!input.iron && s.solder <= 0.01) return touchHow + ' polu i nóżce.' + (K.note ? ' ' + K.note : '');
+  if (input.iron && s.heat < K.heatNeed && s.solder <= 0.01) return 'Grzejesz. Czekaj na zieloną strefę.';
+  if (input.iron && s.solder <= 0.01) return 'Gorące. Podaj cynę.';
+  if (input.iron && s.solder < K.sMin) return 'Podawaj cynę, aż powstanie stożek.';
+  if (input.iron) return 'Wystarczy? Odsuń cynę, potem grot.';
+  return 'Przyłóż grot ponownie.';
+}
+function computeHud(){
+  var L = run.level, j = curJoint(), s = j ? j.st : null;
+  var prog = run.targets.map(function(t, i){ return t.st.done ? (t.st.result === 'good' ? 'good' : 'bad') : (i === run.ti ? 'now' : ''); });
+  var long = !!(s && input.iron && s.contact > j.K.overheat - 1.5);
+  var tl = Math.max(0, run.timeLeft), timer = run.timed ? Math.floor(tl / 60) + ':' + ('0' + Math.floor(tl % 60)).slice(-2) : '';
+  return { code:L.code, name:L.name, title:j ? 'Lut ' + (run.ti + 1) + ' z ' + run.targets.length + ': ' + jointLabel(j) : L.name, hint:hintFor(j), guided:run.guided,
+    meters:!run.exam && !!j, heatFrac:s ? Math.min(1, s.heat / (j.K.heatNeed * 1.7)) : 0, long:long,
+    heatTxt:!s ? '' : (long ? 'za długo' : (s.heat >= j.K.heatNeed ? 'gotowe' : (s.heat > 0.05 ? 'grzeje się' : 'zimne'))),
+    solderFrac:s ? Math.min(1, s.solder / (j.K.sMax * 1.35)) : 0,
+    solderTxt:!s ? '' : (s.solder <= 0.01 ? 'brak' : (s.solder < j.K.sMin ? 'za mało' : (s.solder <= j.K.sMax ? 'w sam raz' : 'za dużo'))),
+    feedback:feedback.text, tone:feedback.tone, score:run.score, combo:run.combo >= 2 ? 'Seria ' + run.combo + '  ×' + fmtMult(multiplier()) : '',
+    timer:timer, timerLow:run.timed && tl < 15, prog:prog };
+}
+
+// ---------- pierścień nad polem ----------
+var ringMat = new THREE.MeshBasicMaterial({ color:C(0x5ec8f2), transparent:true, opacity:0.85, side:THREE.DoubleSide, depthWrite:false, toneMapped:false });
+var ringMesh = new THREE.Mesh((function(){ var g = new THREE.RingGeometry(2.05, 2.5, 48); g.rotateX(-Math.PI / 2); return g; })(), ringMat);
+ringMesh.visible = false; ringMesh.renderOrder = 2; scene.add(ringMesh);
+var RING = { idle:C(0x5ec8f2), heat:C(0xffa24c), ok:C(0x62c584), bad:C(0xf2806a), sample:C(0x9be7ff), exam:C(0xeef2f5) };
+function updateRing(){
+  var j = null, col = RING.idle;
+  if ((game.state === 'play' || game.state === 'cool' || game.state === 'pause') && run){ j = curJoint(); }
+  if (game.state === 'samples' && run && run.sample){ j = run.sample; col = RING.sample; }
+  if (!j || flipAnim || boardPivot.rotation.x > 0.1){ ringMesh.visible = false; return; }
+  ringMesh.visible = true; ringMesh.position.copy(j.world); ringMesh.position.y -= M(0.5);
+  ringMesh.scale.setScalar(M(j.pin.padR));
+  if (game.state !== 'samples'){
+    var s = j.st;
+    if (run.exam) col = RING.exam;
+    else if (input.iron && s.contact > j.K.overheat - 1.5) col = RING.bad;
+    else if (s.heat >= j.K.heatNeed) col = RING.ok;
+    else { ringMat.color.copy(RING.idle).lerp(RING.heat, Math.min(1, s.heat / j.K.heatNeed)); col = null; }
+  }
+  if (col) ringMat.color.copy(col);
+  ringMat.opacity = reduceMotion ? 0.85 : 0.62 + 0.25 * Math.sin(game.t * 4);
+}
+
+// ---------- sesje VR i AR ----------
+function enterXR(mode){
+  initAudio();
+  navigator.xr.requestSession(mode === 'ar' ? 'immersive-ar' : 'immersive-vr', { optionalFeatures:['local-floor', 'bounded-floor', 'hand-tracking'] })
+    .then(function(session){
+      xrMode = mode; session.addEventListener('end', onXREnd);
+      return Promise.resolve(renderer.xr.setSession(session)).then(function(){ onXRStart(mode); });
+    })
+    .catch(function(err){ toast('Nie udało się uruchomić ' + (mode === 'ar' ? 'AR' : 'VR') + ': ' + ((err && err.message) || err)); });
+}
+function onXRStart(mode){
+  ironVR.add(iron.group); wireVR.add(wire.group); wire.spool.visible = true; wire.tail.visible = false;
+  if (mode === 'ar'){ roomGroup.visible = false; tableGroup.visible = false; scene.background = null; }
+  applyBench(); panelDirty = true;
+  if (game.state === 'menu') openMenu();
+  else if (game.state === 'intro' && run) startLevel(run.level);
+  if (!save.bench) toast('Wskazówka: w menu ustaw wysokość stołu do swojego biurka');
+}
+function onXREnd(){
+  setTimeout(function(){
+    xrMode = null; ironDesk.add(iron.group); wireDesk.add(wire.group);
+    roomGroup.visible = true; tableGroup.visible = true; scene.background = BG;
+    applyBench(); renderer.setSize(window.innerWidth, window.innerHeight); fitCamera(); camSnap = true;
+    if (game.state === 'calib') afterCalib();
+    if (game.state === 'menu') openMenu();
+    else if (game.state === 'play' || game.state === 'cool') pauseGame();
+  }, 0);
+}
+
+// ---------- tryb testowy (?debug) ----------
+var auto = null;
+function autopilot(dt){
+  if (!auto || game.state !== 'play') return;
+  var j = curJoint(); if (!j) return;
+  if (auto.j !== j){ auto.j = j; auto.t = 0; }
+  auto.t += dt; var K = j.K, mode = auto.mode, s = j.st;
+  var heatT = mode === 'cold' ? 0.2 : K.heatNeed + 0.25, target = mode === 'much' ? K.sMax + 0.6 : (mode === 'little' ? K.sMin * 0.6 : K.sIdeal);
+  var wantSolder = auto.t > heatT && s.solder < target;
+  var wantIron = auto.t < 8 && !(s.solder >= target && auto.t > heatT && !solderHeld);
+  tmpA.copy(j.world).project(camera); ndc.set(tmpA.x, tmpA.y); pointerKnown = true;
+  pointerDown = wantIron; setSolder(wantSolder);
+}
+
+// ---------- pętla gry ----------
+var clock = new THREE.Clock(), frameN = 0;
+function loop(){ update(Math.min(clock.getDelta(), 0.05)); renderer.render(scene, camera); }
+function update(rdt){
+  var dt = rdt * game.speed; game.t += rdt; frameN++;
+  melting = false; noMelt = false;
+  var inXR = renderer.xr.isPresenting;
+  if (inXR) pollPads(rdt);
+  var playing = game.state === 'play' && run;
+  var j = playing ? curJoint() : null;
+  if (board) refreshJointWorld();
+  autopilot(dt);
+  if (inXR) updateVRTools(j, playing); else updateDesktopTools(j, playing || game.state === 'cool');
+  if (playing) stepJoint(dt);
+  else if (game.state === 'cool' && run){ var cj = curJoint(); if (cj) cj.st.heat = Math.max(0, cj.st.heat - dt * 0.9); run.cool -= dt; if (run.cool <= 0) advanceTarget(); }
+  if (run && run.timed && (game.state === 'play' || game.state === 'cool')){
+    var before = Math.ceil(run.timeLeft); run.timeLeft -= dt;
+    if (run.timeLeft <= 10 && Math.ceil(run.timeLeft) !== before) sfx.tick();
+    if (run.timeLeft <= 0){ run.timeLeft = 0; endSolderStep(true); }
+  }
+  if (melting && j) emitSmoke(j.world, rdt);
+  setSizzle(melting);
+  if (inXR && frameN % 8 === 0){ if (input.iron) pulse(ironSrc, 0.12, 30); if (melting) pulse(wireSrc, 0.1, 30); }
+  updateFX(rdt); updateFlip(rdt); updatePower(rdt); updateRing();
+  updateCamera(rdt, game.t);
+  var h = run && (game.state === 'play' || game.state === 'cool' || game.state === 'pause') ? computeHud() : null;
+  if (h && !$('hud').hidden) renderHud(h);
+  updatePanel(rdt, h && game.state !== 'pause' ? h : null);
+}
+
+// ---------- start ----------
+$('pauseBtn').addEventListener('click', function(){ pauseGame(); });
+window.addEventListener('resize', function(){ if (renderer.xr.isPresenting) return; renderer.setSize(window.innerWidth, window.innerHeight); fitCamera(); });
+if (navigator.xr && navigator.xr.isSessionSupported){
+  navigator.xr.isSessionSupported('immersive-vr').then(function(ok){ xrSupport.vr = !!ok; if (game.state === 'menu' && dlg.m && dlg.m.cls === 'menu') openMenu(); }).catch(function(){});
+  navigator.xr.isSessionSupported('immersive-ar').then(function(ok){ xrSupport.ar = !!ok; if (game.state === 'menu' && dlg.m && dlg.m.cls === 'menu') openMenu(); }).catch(function(){});
+}
+var initDone = false;
+function init(){
+  if (initDone) return; initDone = true;
+  scene.traverse(function(n){ if (n.isMesh && !n.userData.noShadow){ n.receiveShadow = true; n.castShadow = !n.userData.noCast; } });
+  loadBoard('blink'); restoreStory(null); showComps(null); refreshJointWorld(); placeRestingTools();
+  $('loading').hidden = true; openMenu();
+  if (!save.tutorialDone && !save.stars.tut){
+    showDialog({ chip:'GG', title:'Witaj przy stole lutowniczym', body:'<p class="lead">Nauczysz się lutować elementy przewlekane i złożysz migacz z układem 555. Za dobre luty dostajesz punkty, gwiazdki i rangi.</p><p>Zacznij od szkolenia. Trwa około trzech minut.</p>',
+      vr:['Nauczysz się lutować i złożysz migacz z układem 555. Zacznij od szkolenia.'],
+      opts:[ { label:'Zacznij szkolenie', primary:true, act:function(){ startLevel(LEVELS[0]); } }, { label:'Pokaż menu', act:openMenu } ] });
+  }
+  renderer.setAnimationLoop(loop);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ panelDirty = true; });
+}
+if (DEBUG){
+  window.GG = { game:game, levels:LEVELS, save:function(){ return save; }, start:function(i){ startLevel(LEVELS[i]); }, next:function(){ hideDialog(); nextStep(); },
+    auto:function(mode){ auto = mode ? { mode:mode } : null; }, speed:function(v){ game.speed = v; }, run:function(){ return run; },
+    choose:function(n){ var l = (dlg.m && dlg.m.opts || []).filter(function(o){ return !o.vrOnly && !o.disabled; }); if (l[n]) chooseOption(l[n]); }, dialog:function(){ return dlg.m && dlg.m.title; },
+    stop:function(){ renderer.setAnimationLoop(null); }, play:function(){ clock.getDelta(); renderer.setAnimationLoop(loop); }, frame:function(){ renderer.render(scene, camera); },
+    sim:function(sec, step){ step = step || 0.05; for (var t = 0; t < sec; t += step) update(step); return game.state; }, j:function(){ var c = curJoint(); return c ? { ref:c.ref, st:c.st } : null; },
+    panelShot:function(){ var h = run && (game.state === 'play' || game.state === 'cool') ? computeHud() : null; if (game.state === 'calib') drawCalibPanel(); else if (dlg.m) drawDialogPanel(dlg.m); else if (h) drawHudPanel(h); return pc.toDataURL('image/png'); },
+    led:function(v){ setLed(v); }, flip:function(a){ boardPivot.rotation.x = a; }, menu:function(){ openMenu(); },
+    joints:function(){ return board.joints.map(function(x){ return x.ref + '=' + (x.st.result || '-'); }).join(' '); }, ev:function(){ return run && run.circuit; }, shot:function(s){ shot = s; camSnap = true; } };
+}
+var fontWait = setTimeout(init, 1500);
+if (document.fonts && document.fonts.load){
+  Promise.all([document.fonts.load('600 20px Barlow'), document.fonts.load('700 20px "Chakra Petch"')]).then(function(){ clearTimeout(fontWait); setTimeout(init, 30); }).catch(function(){});
+}
+
+
+})();
+</script>
+</body>
+</html>
